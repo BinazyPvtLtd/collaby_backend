@@ -55,7 +55,7 @@ bower_components/
 .env.*
 
 # Firebase service account keys
-
+firebase-service-account.json
 
 # Optional npm cache directory
 .npm/
