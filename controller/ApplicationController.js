@@ -64,7 +64,7 @@ export const applyToCampaign = async (req, res) => {
       });
     }
 
-    // 📝 Create
+    // Create
     const application = await Application.create({
       user_id: user.userId, // ✅ FIXED
       campaign_id: campaignIdNum,
@@ -98,7 +98,7 @@ export const getMyApplications = async (req, res) => {
   try {
     const user = req.user;
 
-    // ✅ Auth check
+    // Auth check
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -106,7 +106,7 @@ export const getMyApplications = async (req, res) => {
       });
     }
 
-    // ✅ Role check
+    // Role check
     if (user.userType !== "influencer") {
       return res.status(403).json({
         success: false,
@@ -116,7 +116,7 @@ export const getMyApplications = async (req, res) => {
 
     const influencerId = String(user.userId);
 
-    // ✅ UUID validation
+    // UUID validation
     if (!validator.isUUID(influencerId)) {
       return res.status(400).json({
         success: false,
@@ -148,10 +148,10 @@ export const getMyApplications = async (req, res) => {
  */
 export const getApplicationsByCampaign = async (req, res) => {
   try {
-    // ✅ Correct param name
+    // Correct param name
     const { campaignId } = req.params;
 
-    // ✅ Validation
+    // Validation
     if (!campaignId) {
       return res.status(400).json({
         success: false,
@@ -168,7 +168,7 @@ export const getApplicationsByCampaign = async (req, res) => {
     }
 
     const applications = await Application.findAll({
-      where: { campaign_id: Number(campaignId) }, // DB column stays campaign_id
+      where: { campaign_id: Number(campaignId) },
     });
 
     return res.json({
@@ -195,13 +195,13 @@ export const acceptApplication = async (req, res) => {
   let transaction = null;
 
   try {
-    // ✅ Create transaction safely
+    // Create transaction safely
     transaction = await sequelize.transaction();
 
     const { id } = req.params;
     const user = req.user;
 
-    // ✅ Auth check
+    // Auth check
     if (!user) {
       if (transaction && !transaction.finished) {
         await transaction.rollback();
@@ -213,7 +213,7 @@ export const acceptApplication = async (req, res) => {
       });
     }
 
-    // ✅ Role check
+    // Role check
     if (user.userType !== "business") {
       if (transaction && !transaction.finished) {
         await transaction.rollback();
@@ -227,7 +227,7 @@ export const acceptApplication = async (req, res) => {
 
     const businessId = user.userId;
 
-    // ✅ Validate ID
+    // Validate ID
     const applicationId = Number(id);
 
     if (!id || isNaN(applicationId)) {
@@ -241,7 +241,7 @@ export const acceptApplication = async (req, res) => {
       });
     }
 
-    // 🔍 Find application
+    // Find application
     const application = await Application.findByPk(applicationId, {
       transaction,
     });
@@ -257,7 +257,7 @@ export const acceptApplication = async (req, res) => {
       });
     }
 
-    // ❌ Prevent re-accept
+    // Prevent re-accept
     if (application.status !== "pending") {
       if (transaction && !transaction.finished) {
         await transaction.rollback();
@@ -273,7 +273,7 @@ export const acceptApplication = async (req, res) => {
     const campaign = await BusinessHack.findByPk(application.campaign_id, {
       transaction,
     });
- 
+
     console.log("CAMPAIGN FOUND:", campaign);
 
     if (!campaign) {
@@ -304,10 +304,9 @@ export const acceptApplication = async (req, res) => {
         success: false,
         message: "Deal already exists for this application",
       });
-    } 
+    }
 
     console.log("Application", application);
-    
 
     // ✅ Update status
     application.status = "accepted";
@@ -503,6 +502,7 @@ export const withdrawApplication = async (req, res) => {
 // };
 
 //api to get all influencers applied to a campaign (brand user)
+
 export const getCampaignApplicants = async (req, res) => {
   try {
     const { campaignId } = req.params;
@@ -522,7 +522,7 @@ export const getCampaignApplicants = async (req, res) => {
       include: [
         {
           model: User,
-          as: "influencer", // association alias
+          as: "influencer",
           attributes: ["id", "name", "email"],
         },
       ],

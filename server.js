@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 dotenv.config();
-//last chnges caps imported file 23-05-26
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import path from "path";
@@ -39,46 +38,32 @@ import dealRoutes from "./routes/dealRoutes.js";
 import { seedCampaignTypes } from "./seeders/seedCampaignTypes.js";
 import { runAllSeeders } from "./seeders/runAllSeeders.js";
 import "./models/Associations.js";
-// ❌ REMOVE bodyParser (not needed)
-// import bodyParser from "body-parser";
+
 const app = express();
 
 app.use(cookieParser());
-// ✅ Body parser middleware
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-/* ================== 🔒 SECURITY ================== */
 
-// ✅ Helmet
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
 );
 
-/* ================== 🔥 RATE LIMIT FIX ================== */
-
-// ⚠️ This can BLOCK Flutter testing → increase limit
 const authLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
-  max: 50, // 🔥 increased from 5 → prevents blocking
+  max: 50,
   message: "Too many attempts, try again later",
 });
 app.use("/api/auth", authLimiter);
 
-/* ================== 🪵 DEBUG ================== */
-
 app.use((req, res, next) => {
-  console.log("👉 Incoming:", req.method, req.url);
+  console.log("Incoming:", req.method, req.url);
   next();
 });
 
-/* ================== 🔥 CORS FIX ================== */
-
-// ❌ OLD (too restrictive)
-// origin: process.env.FRONTEND_URL || "http://localhost:3000"
-
-// ✅ NEW (Flutter + Web safe)
 app.use(
   cors({
     origin: "*",
@@ -86,13 +71,8 @@ app.use(
   }),
 );
 
-/* ================== 🔥 BODY LIMIT FIX ================== */
-
-// increase limit (Flutter images/json may fail on 10kb)
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-
-/* ================== 📁 STATIC ================== */
 
 app.use(
   "/uploads",
@@ -102,15 +82,10 @@ app.use(
   }),
 );
 
-/* ================== TEST ROUTE ================== */
-
 app.get("/", (req, res) => {
-  res.send("InfluenceX Backend Running 🚀");
+  res.send("Collaby Backend Running ");
 });
 
-/* ================== 🌐 ROUTES ================== */
-
-// (NO CHANGE HERE — your routes are fine)
 app.use("/api/auth", otpRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/influencers", influencerRoutes);
@@ -140,10 +115,8 @@ app.use("/api/all-detail", allCampaignDataRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/deals", dealRoutes);
 
-/* ================== ❌ ERROR HANDLER ================== */
-
 app.use((err, req, res, next) => {
-  console.error("❌ Error:", err.stack);
+  console.error("Error:", err.stack);
   res.status(500).json({
     success: false,
     message: err.message || "Internal Server Error",
@@ -151,14 +124,14 @@ app.use((err, req, res, next) => {
 });
 
 console.log("ENV CHECK --->", process.env.RUN_SEEDER);
-/* ================== 🚀 SERVER START ================== */
+
 const startServer = async () => {
   try {
     await sequelize.authenticate();
-    console.log("✅ Database connected successfully");
+    console.log("Database connected successfully");
 
-    await sequelize.sync(); // ❌ REMOVE force:true on live
-    console.log("✅ Tables synced");
+    await sequelize.sync();
+    console.log("Tables synced");
 
     if (process.env.RUN_SEEDER === "true") {
       await runAllSeeders();
@@ -167,27 +140,24 @@ const startServer = async () => {
     const PORT = process.env.PORT;
 
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 Server running on :${PORT}`);
+      console.log(`Server is running on ${PORT}`);
     });
   } catch (error) {
-    console.error("❌ DB Error:", error.message);
+    console.error("DB Error:", error.message);
   }
 };
 
 startServer();
 
-/* ================== 🔻 SHUTDOWN ================== */
-/* ================== 🔻 SHUTDOWN ================== */
-
 const shutdown = async (signal) => {
-  console.log(`⚠️ Received ${signal}`);
+  console.log(`Received ${signal}`);
 
   try {
     await sequelize.close();
-    console.log("✅ DB connection closed");
+    console.log("DB connection closed");
     process.exit(0);
   } catch (err) {
-    console.error("❌ Error closing DB:", err.message);
+    console.error("Error closing DB:", err.message);
     process.exit(1);
   }
 };
@@ -196,7 +166,7 @@ process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
 process.on("SIGUSR2", async () => {
-  console.log("🔄 Nodemon restart...");
+  console.log("Nodemon restart...");
   await sequelize.close();
   process.kill(process.pid, "SIGUSR2");
 });
