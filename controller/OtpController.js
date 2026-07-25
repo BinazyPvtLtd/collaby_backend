@@ -76,7 +76,8 @@ export const sendOtp = async (req, res) => {
     if (!phoneRegex.test(phone)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid Indian phone number (must be 10 digits starting with 6-9)'
+        message:
+          'Invalid Indian phone number (must be 10 digits starting with 6-9)'
       })
     }
 
@@ -101,9 +102,11 @@ export const sendOtp = async (req, res) => {
         })
       }
 
+      // Send OTP here (Firebase frontend OR SMS provider)
+
       return res.status(200).json({
         success: true,
-        message: 'OTP can be sent.'
+        message: 'OTP sent successfully.'
       })
     }
 
@@ -118,9 +121,11 @@ export const sendOtp = async (req, res) => {
         })
       }
 
+      // Send OTP here (Firebase frontend OR SMS provider)
+
       return res.status(200).json({
         success: true,
-        message: 'OTP can be sent.',
+        message: 'OTP sent successfully.',
         userType
       })
     }
