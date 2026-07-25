@@ -19,7 +19,7 @@ console.log('User model:', User)
    COMMON: FIND USER BY PHONE
 ========================================================= */
 const findUserByPhone = async phone => {
-  // ✅ Check Business User
+  // Check Business User
   let user = await BusinessRegistration.findOne({
     where: {
       mobileNumber: phone
@@ -28,12 +28,13 @@ const findUserByPhone = async phone => {
 
   if (user) {
     return {
+      exists: true,
       user,
       userType: 'business'
     }
   }
 
-  // ✅ Check Influencer User
+  // Check Influencer User
   user = await InfluencerUser.findOne({
     where: {
       mobileNumber: phone
@@ -42,12 +43,14 @@ const findUserByPhone = async phone => {
 
   if (user) {
     return {
+      exists: true,
       user,
       userType: 'influencer'
     }
   }
 
   return {
+    exists: false,
     user: null,
     userType: null
   }
@@ -55,13 +58,13 @@ const findUserByPhone = async phone => {
 
 /* =========================================================
    STEP 1
-   CHECK MOBILE NUMBER EXISTS
+   CHECK MOBILE NUMBER EXISTS + FIREBASE OTP SEND
 ========================================================= */
 export const sendOtp = async (req, res) => {
   try {
-    const { phone } = req.body
+    const { phone, type } = req.body
 
-    // ✅ Validate
+    // ✅ Validate phone number (Indian mobile: 10 digits starting with 6-9)
     if (!phone) {
       return res.status(400).json({
         success: false,
@@ -69,22 +72,58 @@ export const sendOtp = async (req, res) => {
       })
     }
 
-    // ✅ Find User
-    const { user, userType } = await findUserByPhone(phone)
-
-    if (!user) {
-      return res.status(404).json({
+    const phoneRegex = /^[6-9]\d{9}$/
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({
         success: false,
-        message: 'Mobile number is not registered'
+        message: 'Invalid Indian phone number (must be 10 digits starting with 6-9)'
       })
     }
 
-    // ✅ Firebase OTP will be sent from frontend
-    return res.status(200).json({
-      success: true,
-      message: 'Opt send Successfully!',
-      userType
-    })
+    if (!type || !['signup', 'login'].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: "Type must be either 'signup' or 'login'"
+      })
+    }
+
+    // Find user
+    const { exists, userType } = await findUserByPhone(phone)
+
+    // ===========================
+    // SIGNUP FLOW
+    // ===========================
+    if (type === 'signup') {
+      if (exists) {
+        return res.status(409).json({
+          success: false,
+          message: 'User already has an account. Please login.'
+        })
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'OTP can be sent.'
+      })
+    }
+
+    // ===========================
+    // LOGIN FLOW
+    // ===========================
+    if (type === 'login') {
+      if (!exists) {
+        return res.status(404).json({
+          success: false,
+          message: 'User does not exist. Please create an account first.'
+        })
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'OTP can be sent.',
+        userType
+      })
+    }
   } catch (error) {
     console.log('SEND OTP ERROR:', error)
 
@@ -94,7 +133,6 @@ export const sendOtp = async (req, res) => {
     })
   }
 }
-
 /* =========================================================
    STEP 2
    VERIFY FIREBASE TOKEN + LOGIN
@@ -314,8 +352,8 @@ export const refreshAccessToken = async (req, res) => {
       })
     }
 
-    // ✅ Find User
-    const user = await User.findByPk(Number(decoded.userId))
+    // ✅ Find User (userId is UUID string)
+    const user = await User.findByPk(decoded.userId)
 
     if (!user) {
       return res.status(404).json({
