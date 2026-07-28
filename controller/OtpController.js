@@ -216,7 +216,6 @@ export const verifyOtp = async (req, res) => {
     // ===============================
     const payload = {
       userId: dbUser.id,
-      uuid: dbUser.uuid,
       phone,
       userType
     }
@@ -243,13 +242,13 @@ export const verifyOtp = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'OTP verified successfully',
-      accessToken,
-      refreshToken,
+
       user: {
         id: dbUser.id,
-        uuid: dbUser.uuid,
         phone,
-        type: userType
+        type: userType,
+        accessToken,
+        refreshToken
       }
     })
   } catch (error) {
