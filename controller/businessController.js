@@ -3,97 +3,97 @@ import Influencer from '../models/InfluencerUser.js'
 import BusinessRegistration from '../models/Business.js'
 import { v4 as uuidv4 } from 'uuid'
 import { ValidationError } from 'sequelize'
-import jwt from "jsonwebtoken";
+import jwt from 'jsonwebtoken'
 
 export const createBusiness = async (req, res) => {
   try {
     const payload = {
       ...req.body,
-      gstNumber: req.body.gstNumber || null,
-    };
+      gstNumber: req.body.gstNumber || null
+    }
 
-    const business = await BusinessRegistration.create(payload);
+    const business = await BusinessRegistration.create(payload)
 
     // Generate Tokens
     const accessToken = jwt.sign(
       {
         id: business.id,
-        userType: "business",
+        userType: 'business'
       },
       process.env.JWT_SECRET,
       {
-        expiresIn: process.env.JWT_EXPIRES_IN || "1d",
+        expiresIn: process.env.JWT_EXPIRES_IN || '1d'
       }
-    );
+    )
 
     const refreshToken = jwt.sign(
       {
         id: business.id,
-        userType: "business",
+        userType: 'business'
       },
       process.env.JWT_REFRESH_SECRET,
       {
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "30d",
+        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d'
       }
-    );
+    )
 
-    console.log("Business created successfully:", business.toJSON());
+    console.log('Business created successfully:', business.toJSON())
 
     // Remove unwanted fields
-    const businessData = business.toJSON();
+    const businessData = business.toJSON()
 
-    delete businessData.refreshToken;
-    delete businessData.deletedAt;
-    delete businessData.business_user_id;
+    delete businessData.refreshToken
+    delete businessData.deletedAt
+    delete businessData.business_user_id
 
     return res.status(200).json({
       success: true,
-      message: "Business registered successfully",
-      tokens: {
+      message: 'Business registered successfully',
+      data: {
+        ...convertToString(businessData),
         accessToken,
-        refreshToken,
-      },
-      data: convertToString(businessData),
-    });
+        refreshToken
+      }
+    })
   } catch (error) {
     // Validation Error
     if (error instanceof ValidationError) {
-      const errors = {};
+      const errors = {}
 
-      error.errors.forEach((err) => {
-        errors[err.path] = err.message;
-      });
+      error.errors.forEach(err => {
+        errors[err.path] = err.message
+      })
 
       return res.status(200).json({
         success: true,
-        message: "Validation failed",
-        errors,
-      });
+        message: 'Validation failed',
+        errors
+      })
     }
 
     // Duplicate Error
-    if (error.name === "SequelizeUniqueConstraintError") {
-      const errors = {};
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      const errors = {}
 
-      error.errors.forEach((err) => {
-        errors[err.path] = `${err.path} already exists`;
-      });
+      error.errors.forEach(err => {
+        errors[err.path] = `${err.path} already exists`
+      })
 
       return res.status(200).json({
         success: true,
-        message: "Duplicate data error",
-        errors,
-      });
+        message: 'Duplicate data error',
+        errors
+      })
     }
 
-    console.error(error);
+    console.error(error)
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong",
-    });
+      message: 'Something went wrong'
+    })
   }
-};
+}
 
 // ✅ GET ALL Businesses (Only Logged-in User)
 export const getAllBusinesses = async (req, res) => {

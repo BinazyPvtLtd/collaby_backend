@@ -1,8 +1,8 @@
 import influencersUser from '../models/InfluencerUser.js'
 import BusinessRegistration from '../models/Business.js'
 import { v4 as uuidv4 } from 'uuid'
-import jwt from "jsonwebtoken";
-import { convertToString } from '../HelperFunction/Helper.js';
+import jwt from 'jsonwebtoken'
+import { convertToString } from '../HelperFunction/Helper.js'
 
 export const createInfluencer = async (req, res) => {
   try {
@@ -101,11 +101,11 @@ export const createInfluencer = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'Influencer created successfully',
-      tokens: {
+      data: {
+        ...convertToString(influencerData),
         accessToken,
         refreshToken
-      },
-      data: convertToString(influencerData)
+      }
     })
   } catch (error) {
     console.error('ERROR >>>', error)
