@@ -146,88 +146,74 @@ export const verifyOtp = async (req, res) => {
   try {
     const { phone, firebaseToken } = req.body
 
-    // ✅ Validate
+    // ===============================
+    // Validate Request
+    // ===============================
     if (!phone || !firebaseToken) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Phone and firebaseToken are required'
       })
     }
 
-    // ====================================================
-    // ✅ VERIFY FIREBASE TOKEN
-    // ====================================================
-
+    // ===============================
+    // Verify Firebase Token
+    // ===============================
     const decodedToken = await admin.auth().verifyIdToken(firebaseToken)
 
     if (!decodedToken.phone_number) {
-      return res.status(401).json({
+      return res.status(200).json({
         success: false,
         message: 'Invalid Firebase token'
       })
     }
 
-    // ====================================================
-    // ✅ FORMAT PHONE
-    // ====================================================
+    // ===============================
+    // Match Phone Number
+    // ===============================
+    const firebasePhone = decodedToken.phone_number.replace('+91', '').trim()
 
-    let firebasePhone = decodedToken.phone_number
-
-    // remove country code
-    firebasePhone = firebasePhone.replace('+91', '')
-
-    if (firebasePhone !== phone) {
-      return res.status(401).json({
+    if (firebasePhone !== phone.trim()) {
+      return res.status(200).json({
         success: false,
         message: 'Phone number mismatch'
       })
     }
 
-    // ====================================================
-    // ✅ FIND USER
-    // ====================================================
-
+    // ===============================
+    // Find User
+    // ===============================
     const { user, userType } = await findUserByPhone(phone)
 
     if (!user) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'User not found'
       })
     }
 
-    // ====================================================
-    // ✅ CREATE / FIND AUTH USER
-    // ====================================================
-
-    let existingUser = await User.findOne({
+    // ===============================
+    // Create/Get Auth User
+    // ===============================
+    let dbUser = await User.findOne({
       where: { phone }
     })
 
-    let dbUser
-
-    if (!existingUser) {
+    if (!dbUser) {
       dbUser = await User.create({
         name: user.fullName || user.businessName || 'User',
-
         email: user.email || `${phone}@temp.com`,
-
         phone,
-
         role: userType === 'business' ? 'brand' : 'influencer',
-
         status: 'approved'
       })
 
       console.log('✅ User created:', dbUser.id)
-    } else {
-      dbUser = existingUser
     }
 
-    // ====================================================
-    // ✅ TOKEN PAYLOAD
-    // ====================================================
-
+    // ===============================
+    // Generate JWT Payload
+    // ===============================
     const payload = {
       userId: dbUser.id,
       uuid: dbUser.uuid,
@@ -235,40 +221,30 @@ export const verifyOtp = async (req, res) => {
       userType
     }
 
-    // ====================================================
-    // ✅ GENERATE TOKENS
-    // ====================================================
-
     const accessToken = generateAccessToken(payload)
-
     const refreshToken = generateRefreshToken(payload)
 
-    // ====================================================
-    // ✅ SAVE TOKENS IN DB
-    // ====================================================
-
+    // ===============================
+    // Save Tokens
+    // ===============================
     await dbUser.update({
       access_token: accessToken,
       refresh_token: refreshToken
     })
 
-    // ====================================================
-    // ✅ SET AUTH COOKIES
-    // ====================================================
-
+    // ===============================
+    // Set Cookies
+    // ===============================
     setAuthCookies(res, accessToken, refreshToken)
 
-    // ====================================================
-    // ✅ RESPONSE
-    // ====================================================
-
+    // ===============================
+    // Success Response
+    // ===============================
     return res.status(200).json({
       success: true,
-      message: 'Login successful',
-
+      message: 'OTP verified successfully',
       accessToken,
       refreshToken,
-
       user: {
         id: dbUser.id,
         uuid: dbUser.uuid,
@@ -279,13 +255,12 @@ export const verifyOtp = async (req, res) => {
   } catch (error) {
     console.log('VERIFY OTP ERROR:', error)
 
-    return res.status(500).json({
+    return res.status(200).json({
       success: false,
       message: error.message || 'Firebase OTP verification failed'
     })
   }
 }
-
 /* =========================================================
    LOGOUT
 ========================================================= */
