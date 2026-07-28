@@ -64,9 +64,9 @@ export const sendOtp = async (req, res) => {
   try {
     const { phone, type } = req.body
 
-    // ✅ Validate phone number (Indian mobile: 10 digits starting with 6-9)
+    // Validate phone number
     if (!phone) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Phone number is required'
       })
@@ -74,7 +74,7 @@ export const sendOtp = async (req, res) => {
 
     const phoneRegex = /^[6-9]\d{9}$/
     if (!phoneRegex.test(phone)) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message:
           'Invalid Indian phone number (must be 10 digits starting with 6-9)'
@@ -82,7 +82,7 @@ export const sendOtp = async (req, res) => {
     }
 
     if (!type || !['signup', 'login'].includes(type)) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: "Type must be either 'signup' or 'login'"
       })
@@ -96,13 +96,13 @@ export const sendOtp = async (req, res) => {
     // ===========================
     if (type === 'signup') {
       if (exists) {
-        return res.status(409).json({
+        return res.status(200).json({
           success: false,
           message: 'User already has an account. Please login.'
         })
       }
 
-      // Send OTP here (Firebase frontend OR SMS provider)
+      // Send OTP here
 
       return res.status(200).json({
         success: true,
@@ -115,13 +115,13 @@ export const sendOtp = async (req, res) => {
     // ===========================
     if (type === 'login') {
       if (!exists) {
-        return res.status(404).json({
+        return res.status(200).json({
           success: false,
           message: 'User does not exist. Please create an account first.'
         })
       }
 
-      // Send OTP here (Firebase frontend OR SMS provider)
+      // Send OTP here
 
       return res.status(200).json({
         success: true,
@@ -132,7 +132,7 @@ export const sendOtp = async (req, res) => {
   } catch (error) {
     console.log('SEND OTP ERROR:', error)
 
-    return res.status(500).json({
+    return res.status(200).json({
       success: false,
       message: error.message || 'Failed to process request'
     })
