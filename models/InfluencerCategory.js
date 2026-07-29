@@ -1,14 +1,14 @@
-import { DataTypes } from "sequelize";
-import sequelize from "../config/database.js";
-import xss from "xss";
+import { DataTypes } from 'sequelize'
+import sequelize from '../config/database.js'
+import xss from 'xss'
 
 const InfluencerCategory = sequelize.define(
-  "InfluencerCategory",
+  'InfluencerCategory',
   {
     id: {
       type: DataTypes.INTEGER,
       autoIncrement: true,
-      primaryKey: true,
+      primaryKey: true
     },
 
     influencer_id: {
@@ -16,12 +16,12 @@ const InfluencerCategory = sequelize.define(
       allowNull: false,
       validate: {
         isInt: true,
-        min: 1,
+        min: 1
       },
       references: {
-        model: "influencersUser",
-        key: "id",
-      },
+        model: 'influencersUser',
+        key: 'id'
+      }
     },
 
     categoryName: {
@@ -29,39 +29,35 @@ const InfluencerCategory = sequelize.define(
       allowNull: false,
       validate: {
         notEmpty: true,
-        len: [2, 100],
-      },
-    },
-    user_id: {
-      type: DataTypes.UUID,
-      allowNull: false,
-    },
+        len: [2, 100]
+      }
+    }
   },
   {
-    tableName: "influencer_category",
+    tableName: 'influencer_category',
     timestamps: true,
 
     hooks: {
-      beforeValidate: (data) => {
-        sanitizeInfluencerCategory(data);
-      },
-    },
-  },
-);
+      beforeValidate: data => {
+        sanitizeInfluencerCategory(data)
+      }
+    }
+  }
+)
 
 // 🔐 Sanitizer
-function sanitizeInfluencerCategory(data) {
+function sanitizeInfluencerCategory (data) {
   if (data.categoryName) {
-    data.categoryName = xss(data.categoryName.trim());
+    data.categoryName = xss(data.categoryName.trim())
   }
 
   if (data.influencer_id !== undefined) {
-    data.influencer_id = Number(data.influencer_id);
+    data.influencer_id = Number(data.influencer_id)
 
     if (Number.isNaN(data.influencer_id)) {
-      throw new Error("Invalid influencer_id");
+      throw new Error('Invalid influencer_id')
     }
   }
 }
 
-export default InfluencerCategory;
+export default InfluencerCategory

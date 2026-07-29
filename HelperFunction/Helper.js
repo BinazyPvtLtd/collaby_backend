@@ -1,3 +1,5 @@
+import BusinessRegistration from '../models/Business.js'
+import InfluencerUser from '../models/InfluencerUser.js'
 export const convertToString = value => {
   // Handle null/undefined
   if (value === null || value === undefined) {
@@ -150,4 +152,29 @@ export const formatGender = gender => {
 
   const valid = ['Male', 'Female', 'Other']
   return valid.includes(formatted) ? formatted : null
+}
+
+// Find user by phone and type in login flow(send-otp)
+export const findUserByPhoneAndType = async (phone, userType) => {
+  let user = null
+
+  if (userType === 'business') {
+    user = await BusinessRegistration.findOne({
+      where: {
+        mobileNumber: phone
+      }
+    })
+  } else if (userType === 'influencer') {
+    user = await InfluencerUser.findOne({
+      where: {
+        mobileNumber: phone
+      }
+    })
+  }
+
+  return {
+    exists: !!user,
+    user,
+    userType
+  }
 }

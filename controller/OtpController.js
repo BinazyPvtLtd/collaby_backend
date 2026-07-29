@@ -12,6 +12,7 @@ import { setAuthCookies } from '../utility/setCookies.js'
 import jwt from 'jsonwebtoken'
 
 import admin from '../config/firebaseAdmin.js'
+import { findUserByPhoneAndType } from '../HelperFunction/Helper.js'
 
 console.log('User model:', User)
 
@@ -62,9 +63,8 @@ const findUserByPhone = async phone => {
 ========================================================= */
 export const sendOtp = async (req, res) => {
   try {
-    const { phone, type } = req.body
+    const { phone, type, userType } = req.body
 
-    // Validate phone number
     if (!phone) {
       return res.status(200).json({
         success: false,
@@ -73,6 +73,7 @@ export const sendOtp = async (req, res) => {
     }
 
     const phoneRegex = /^[6-9]\d{9}$/
+
     if (!phoneRegex.test(phone)) {
       return res.status(200).json({
         success: false,
@@ -88,13 +89,24 @@ export const sendOtp = async (req, res) => {
       })
     }
 
-    // Find user
-    const { exists, userType } = await findUserByPhone(phone)
+    // userType required only for login
+    if (
+      type === 'login' &&
+      (!userType || !['business', 'influencer'].includes(userType))
+    ) {
+      return res.status(200).json({
+        success: false,
+        message: 'userType must be either business or influencer'
+      })
+    }
 
-    // ===========================
-    // SIGNUP FLOW
-    // ===========================
+    // ==========================
+    // SIGNUP
+    // ==========================
     if (type === 'signup') {
+      // Check both tables to prevent duplicate registration
+      const { exists } = await findUserByPhone(phone)
+
       if (exists) {
         return res.status(200).json({
           success: false,
@@ -102,7 +114,7 @@ export const sendOtp = async (req, res) => {
         })
       }
 
-      // Send OTP here
+      // Send OTP
 
       return res.status(200).json({
         success: true,
@@ -110,25 +122,25 @@ export const sendOtp = async (req, res) => {
       })
     }
 
-    // ===========================
-    // LOGIN FLOW
-    // ===========================
-    if (type === 'login') {
-      if (!exists) {
-        return res.status(200).json({
-          success: false,
-          message: 'User does not exist. Please create an account first.'
-        })
-      }
+    // ==========================
+    // LOGIN
+    // ==========================
+    const result = await findUserByPhoneAndType(phone, userType)
 
-      // Send OTP here
-
+    if (!result.exists) {
       return res.status(200).json({
-        success: true,
-        message: 'OTP sent successfully.',
-        userType
+        success: false,
+        message: `No ${userType} account found with this mobile number.`
       })
     }
+
+    // Send OTP
+
+    return res.status(200).json({
+      success: true,
+      message: 'OTP sent successfully.',
+      userType: result.userType
+    })
   } catch (error) {
     console.log('SEND OTP ERROR:', error)
 
@@ -252,11 +264,13 @@ export const verifyOtp = async (req, res) => {
       }
     })
   } catch (error) {
-    console.log('VERIFY OTP ERROR:', error)
+    console.error(error)
+    console.error(error.sql)
+    console.error(error.parent)
 
     return res.status(200).json({
       success: false,
-      message: error.message || 'Firebase OTP verification failed'
+      message: error.message
     })
   }
 }
