@@ -7,6 +7,32 @@ import jwt from 'jsonwebtoken'
 
 export const createBusiness = async (req, res) => {
   try {
+    const { mobileNumber } = req.body
+
+    // Check if mobile already exists in Business table
+    const existingBusiness = await BusinessRegistration.findOne({
+      where: { mobileNumber }
+    })
+
+    if (existingBusiness) {
+      return res.status(200).json({
+        success: false,
+        message: 'Mobile number is already registered as a business.'
+      })
+    }
+
+    // Check if mobile already exists in Influencer table
+    const existingInfluencer = await Influencer.findOne({
+      where: { mobileNumber }
+    })
+
+    if (existingInfluencer) {
+      return res.status(200).json({
+        success: false,
+        message: 'Mobile number is already registered as an influencer.'
+      })
+    }
+
     const payload = {
       ...req.body,
       gstNumber: req.body.gstNumber || null
@@ -39,7 +65,6 @@ export const createBusiness = async (req, res) => {
 
     console.log('Business created successfully:', business.toJSON())
 
-    // Remove unwanted fields
     const businessData = business.toJSON()
 
     delete businessData.refreshToken
@@ -65,7 +90,7 @@ export const createBusiness = async (req, res) => {
       })
 
       return res.status(200).json({
-        success: true,
+        success: false,
         message: 'Validation failed',
         errors
       })
@@ -80,7 +105,7 @@ export const createBusiness = async (req, res) => {
       })
 
       return res.status(200).json({
-        success: true,
+        success: false,
         message: 'Duplicate data error',
         errors
       })
