@@ -4,6 +4,7 @@ import BusinessRegistration from '../models/Business.js'
 import { v4 as uuidv4 } from 'uuid'
 import { ValidationError } from 'sequelize'
 import jwt from 'jsonwebtoken'
+import { generateAccessToken, generateRefreshToken } from '../HelperFunction/Tokens.js'
 
 export const createBusiness = async (req, res) => {
   try {
@@ -41,27 +42,9 @@ export const createBusiness = async (req, res) => {
     const business = await BusinessRegistration.create(payload)
 
     // Generate Tokens
-    const accessToken = jwt.sign(
-      {
-        id: business.id,
-        userType: 'business'
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: process.env.JWT_EXPIRES_IN || '1d'
-      }
-    )
+    const accessToken = generateAccessToken(user.uuid, userType)
 
-    const refreshToken = jwt.sign(
-      {
-        id: business.id,
-        userType: 'business'
-      },
-      process.env.JWT_REFRESH_SECRET,
-      {
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d'
-      }
-    )
+    const refreshToken = generateRefreshToken(user.uuid, userType)
 
     console.log('Business created successfully:', business.toJSON())
 

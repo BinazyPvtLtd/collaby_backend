@@ -3,6 +3,7 @@ import BusinessRegistration from '../models/Business.js'
 import { v4 as uuidv4 } from 'uuid'
 import jwt from 'jsonwebtoken'
 import { convertToString } from '../HelperFunction/Helper.js'
+import { generateAccessToken, generateRefreshToken } from '../HelperFunction/Tokens.js'
 
 export const createInfluencer = async (req, res) => {
   try {
@@ -67,29 +68,9 @@ export const createInfluencer = async (req, res) => {
       gender: formattedGender
     })
 
-    // Generate Access Token
-    const accessToken = jwt.sign(
-      {
-        id: influencer.id,
-        userType: 'influencer'
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: process.env.JWT_EXPIRES_IN || '1d'
-      }
-    )
+    const accessToken = generateAccessToken(influencer.uuid, 'influencer')
 
-    // Generate Refresh Token
-    const refreshToken = jwt.sign(
-      {
-        id: influencer.id,
-        userType: 'influencer'
-      },
-      process.env.JWT_REFRESH_SECRET,
-      {
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d'
-      }
-    )
+    const refreshToken = generateRefreshToken(influencer.uuid, 'influencer')
 
     const influencerData = influencer.toJSON()
 
