@@ -65,7 +65,7 @@ export const createBusinessHackStep4 = async (req, res) => {
     const campaign = await BusinessHack.findOne({
       where: {
         id: businessHackId,
-        user_id: req.user.userId,
+        user_id: req.user.uuid,
       },
     });
 
@@ -97,7 +97,7 @@ export const createBusinessHackStep4 = async (req, res) => {
       : [];
 
     const step4 = await BusinessHackStep4.create({
-      user_id: req.user.userId, // ✅ IMPORTANT
+      user_id: req.user.uuid, // ✅ IMPORTANT
       businessHackId,
       campaignImage,
       sampleMedia,
@@ -124,12 +124,12 @@ export const getAllBusinessHackStep4 = async (req, res) => {
   try {
     const data = await BusinessHackStep4.findAll({
       where: {
-        user_id: req.user.userId,
+        user_id: req.user.uuid,
       },
       include: {
         model: BusinessHack,
         where: {
-          user_id: req.user.userId,
+          user_id: req.user.uuid,
         },
       },
     });
@@ -153,12 +153,12 @@ export const updateBusinessHackStep4 = async (req, res) => {
     const step4 = await BusinessHackStep4.findOne({
       where: {
         id: req.params.id,
-        user_id: req.user.userId,
+        user_id: req.user.uuid,
       },
       include: {
         model: BusinessHack,
         where: {
-          user_id: req.user.userId,
+          user_id: req.user.uuid,
         },
       },
     });
@@ -206,12 +206,12 @@ export const deleteBusinessHackStep4 = async (req, res) => {
     const step4 = await BusinessHackStep4.findOne({
       where: {
         id: req.params.id,
-        user_id: req.user.userId,
+        user_id: req.user.uuid,
       },
       include: {
         model: BusinessHack,
         where: {
-          user_id: req.user.userId,
+          user_id: req.user.uuid,
         },
       },
     });
