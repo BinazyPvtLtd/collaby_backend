@@ -16,7 +16,7 @@ export const createBusinessHack = async (req, res) => {
     }
 
     const businessHack = await BusinessHack.create({
-      user_id: req.user.userId,
+      user_id: req.user.uuid,
       campaignName,
       state,
       city,

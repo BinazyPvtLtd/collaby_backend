@@ -4,7 +4,10 @@ import BusinessRegistration from '../models/Business.js'
 import { v4 as uuidv4 } from 'uuid'
 import { ValidationError } from 'sequelize'
 import jwt from 'jsonwebtoken'
-import { generateAccessToken, generateRefreshToken } from '../HelperFunction/Tokens.js'
+import {
+  generateAccessToken,
+  generateRefreshToken
+} from '../HelperFunction/Tokens.js'
 
 export const createBusiness = async (req, res) => {
   try {
@@ -41,10 +44,15 @@ export const createBusiness = async (req, res) => {
 
     const business = await BusinessRegistration.create(payload)
 
-    // Generate Tokens
-    const accessToken = generateAccessToken(user.uuid, userType)
+    const accessToken = generateAccessToken({
+      uuid: business.uuid,
+      userType: 'business'
+    })
 
-    const refreshToken = generateRefreshToken(user.uuid, userType)
+    const refreshToken = generateRefreshToken({
+      uuid: business.uuid,
+      userType: 'business'
+    })
 
     console.log('Business created successfully:', business.toJSON())
 
@@ -64,6 +72,8 @@ export const createBusiness = async (req, res) => {
       }
     })
   } catch (error) {
+    console.error('CREATE BUSINESS ERROR:', error)
+
     // Validation Error
     if (error instanceof ValidationError) {
       const errors = {}

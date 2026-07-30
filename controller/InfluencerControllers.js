@@ -15,7 +15,6 @@ export const createInfluencer = async (req, res) => {
 
   try {
     const userId = req.user.userId;
-
     const exists = await Influencer.findOne({
       where: { userId }, // ✅ use model field
     });
