@@ -271,7 +271,7 @@ export const getBusinessUserCampaigns = async (req, res) => {
 //get all campigns creted by one business user
 export const getBusinessCampaigns = async (req, res) => {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.uuid; // Corrected to use 'uuid' instead of 'userId'
     const role = req.user?.userType;
 
     // Only business user allowed
