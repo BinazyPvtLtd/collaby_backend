@@ -2,17 +2,21 @@ import express from "express";
 import {
   createCategory,
   getAllCategories,
-  getCategoryById,
-  updateCategory,
-  deleteCategory,
+  saveInfluencerCategories,
+  getInfluencerCategories,
 } from "../controller/InfluencerCategoryController.js";
 
 const router = express.Router();
 
-router.post("/create", createCategory);
+// Master Categories
+router.post("/category", createCategory);
 router.get("/categories", getAllCategories);
-router.get("/:id", getCategoryById);
-router.put("/:id", updateCategory);
-router.delete("/:id", deleteCategory);
+
+// Influencer Category Mapping
+router.post("/influencer/categories", saveInfluencerCategories);
+router.get(
+  "/influencer/categories/:influencer_id",
+  getInfluencerCategories
+);
 
 export default router;

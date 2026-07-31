@@ -4,9 +4,11 @@ import BusinessHackStep3 from "./BusinessHackDetail2.js";
 import BusinessHackStep4 from "./BusinessHackStep4.js";
 
 import Application from "./Application.js";
-import User from "./User.js";
+import InfluencerUser from "./InfluencerUser.js";
+import ContentCategory from "./ContentCategory.js";
+import InfluencerCategory from "./InfluencerCategory.js";
 
-// ================= BUSINESS HACK ASSOCIATIONS =================
+// ================= BUSINESS HACK =================
 
 BusinessHack.hasOne(BusinessHackDetail, {
   foreignKey: "businessHackId",
@@ -23,8 +25,6 @@ BusinessHack.hasOne(BusinessHackStep4, {
   as: "business_hack_step4",
 });
 
-// CHILD → PARENT
-
 BusinessHackDetail.belongsTo(BusinessHack, {
   foreignKey: "businessHackId",
 });
@@ -37,22 +37,44 @@ BusinessHackStep4.belongsTo(BusinessHack, {
   foreignKey: "businessHackId",
 });
 
-// ================= APPLICATION ASSOCIATIONS =================
+// ================= APPLICATION =================
 
-// Application → User (Influencer)
-
-Application.belongsTo(User, {
+Application.belongsTo(InfluencerUser, {
   foreignKey: "influencer_id",
   targetKey: "id",
   as: "influencer",
 });
 
-// User → Applications
-
-User.hasMany(Application, {
+InfluencerUser.hasMany(Application, {
   foreignKey: "influencer_id",
   sourceKey: "id",
   as: "applications",
+});
+
+// ================= CATEGORY =================
+
+InfluencerUser.hasMany(InfluencerCategory, {
+  foreignKey: "influencer_id",
+  sourceKey: "id",
+  as: "categories",
+});
+
+InfluencerCategory.belongsTo(InfluencerUser, {
+  foreignKey: "influencer_id",
+  targetKey: "id",
+  as: "influencer",
+});
+
+ContentCategory.hasMany(InfluencerCategory, {
+  foreignKey: "category_id",
+  sourceKey: "id",
+  as: "influencerMappings",
+});
+
+InfluencerCategory.belongsTo(ContentCategory, {
+  foreignKey: "category_id",
+  targetKey: "id",
+  as: "category",
 });
 
 export {
@@ -61,5 +83,7 @@ export {
   BusinessHackStep3,
   BusinessHackStep4,
   Application,
-  User,
+  InfluencerUser,
+  ContentCategory,
+  InfluencerCategory,
 };
