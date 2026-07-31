@@ -24,40 +24,40 @@ const BusinessHackStep3 = sequelize.define(
     influencerCategory: {
       type: DataTypes.JSONB,
       allowNull: false,
-      validate: {
-        isValidCategory(value) {
-          if (!Array.isArray(value)) {
-            throw new Error("influencerCategory must be an array");
-          }
+      // validate: {
+      //   isValidCategory(value) {
+      //     if (!Array.isArray(value)) {
+      //       throw new Error("influencerCategory must be an array");
+      //     }
 
-          if (value.length === 0) {
-            throw new Error("At least one influencer category is required");
-          }
+      //     if (value.length === 0) {
+      //       throw new Error("At least one influencer category is required");
+      //     }
 
-          const allowedCategories = [
-            "Fashion",
-            "Lifestyle",
-            "Fitness",
-            "Beauty",
-            "Travel",
-            "Food",
-            "Tech",
-          ];
+      //     const allowedCategories = [
+      //       "Fashion",
+      //       "Lifestyle",
+      //       "Fitness",
+      //       "Beauty",
+      //       "Travel",
+      //       "Food",
+      //       "Tech",
+      //     ];
 
-          value.forEach((item) => {
-            if (typeof item !== "string") {
-              throw new Error("Each category must be a string");
-            }
+      //     value.forEach((item) => {
+      //       if (typeof item !== "string") {
+      //         throw new Error("Each category must be a string");
+      //       }
 
-            const formatted =
-              item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
+      //       const formatted =
+      //         item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
 
-            if (!allowedCategories.includes(formatted)) {
-              throw new Error(`Invalid category: ${item}`);
-            }
-          });
-        },
-      },
+      //       if (!allowedCategories.includes(formatted)) {
+      //         throw new Error(`Invalid category: ${item}`);
+      //       }
+      //     });
+      //   },
+      // },
     },
 
     gender: {
