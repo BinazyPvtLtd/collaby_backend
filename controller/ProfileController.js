@@ -23,7 +23,7 @@ export const createProfile = async (req, res) => {
 
     const profile = await Profile.create({
       name,
-      user_id: req.user.userId,
+      user_id: req.user.uuid, // Use the authenticated user's ID
       businessName,
       businessCategories,
       headQuarters,
