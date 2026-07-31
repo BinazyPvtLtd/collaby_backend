@@ -54,7 +54,7 @@ export const createProfile = async (req, res) => {
 export const getAllProfiles = async (req, res) => {
   try {
     const profiles = await Profile.findAll({
-      where: { user_id: req.user.userId },
+      where: { user_id: req.user.uuid },
     });
 
     res.json({
@@ -70,7 +70,7 @@ export const getAllProfiles = async (req, res) => {
 export const getMyProfile = async (req, res) => {
   try {
     const profile = await Profile.findOne({
-      where: { user_id: req.user.userId },
+      where: { user_id: req.user.uuid },
     });
 
     if (!profile) {
@@ -115,7 +115,7 @@ export const updateProfile = async (req, res) => {
     }
 
     // ✅ SECURITY CHECK
-    if (profile.user_id !== req.user.userId) {
+    if (profile.user_id !== req.user.uuid) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized",
@@ -173,7 +173,7 @@ export const deleteProfile = async (req, res) => {
     }
 
     // ✅ Optional: Add security check (recommended)
-    if (profile.user_id !== req.user.userId) {
+    if (profile.user_id !== req.user.uuid) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized",
