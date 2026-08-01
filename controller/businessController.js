@@ -116,11 +116,11 @@ export const createBusiness = async (req, res) => {
 // ✅ GET ALL Businesses (Only Logged-in User)
 export const getAllBusinesses = async (req, res) => {
   try {
-    console.log('Logged-in User UUID:', req.user.uuid) // Debugging line
+    console.log('Logged-in User UUID:', req.user.userId) // Debugging line
 
     const businesses = await BusinessRegistration.findAll({
       // where: { business_user_id: req.user.userId },
-      where: { business_user_id: req.user.uuid }
+      where: { business_user_id: req.user.userId }
     })
 
     return res.status(200).json({
@@ -145,7 +145,7 @@ export const getBusinessByUUID = async (req, res) => {
       where: {
         uuid,
         // business_user_id: req.user.userId,
-        business_user_id: req.user.uuid
+        business_user_id: req.user.userId
       }
     })
 
@@ -177,7 +177,7 @@ export const updateBusiness = async (req, res) => {
       where: {
         uuid,
         // business_user_id: req.user.userId,
-        business_user_id: req.user.uuid
+        business_user_id: req.user.userId
       }
     })
 

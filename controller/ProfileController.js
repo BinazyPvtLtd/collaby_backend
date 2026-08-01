@@ -23,7 +23,7 @@ export const createProfile = async (req, res) => {
 
     const profile = await Profile.create({
       name,
-      user_id: req.user.uuid, // Use the authenticated user's ID
+      user_id: req.user.userId, // Use the authenticated user's ID
       businessName,
       businessCategories,
       headQuarters,
@@ -54,7 +54,7 @@ export const createProfile = async (req, res) => {
 export const getAllProfiles = async (req, res) => {
   try {
     const profiles = await Profile.findAll({
-      where: { user_id: req.user.uuid },
+      where: { user_id: req.user.userId }, // Fetch profiles for the authenticated user
     });
 
     res.json({
@@ -70,7 +70,7 @@ export const getAllProfiles = async (req, res) => {
 export const getMyProfile = async (req, res) => {
   try {
     const profile = await Profile.findOne({
-      where: { user_id: req.user.uuid },
+      where: { user_id: req.user.userId }, // Fetch the profile for the authenticated user
     });
 
     if (!profile) {
@@ -115,7 +115,7 @@ export const updateProfile = async (req, res) => {
     }
 
     // ✅ SECURITY CHECK
-    if (profile.user_id !== req.user.uuid) {
+    if (profile.user_id !== req.user.userId) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized",
@@ -173,7 +173,7 @@ export const deleteProfile = async (req, res) => {
     }
 
     // ✅ Optional: Add security check (recommended)
-    if (profile.user_id !== req.user.uuid) {
+    if (profile.user_id !== req.user.userId) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized",
