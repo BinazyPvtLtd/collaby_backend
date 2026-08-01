@@ -73,7 +73,7 @@ export const createInfluencer = async (req, res) => {
 
     // JWT Payload
     const tokenPayload = {
-      uuid: influencer.uuid,
+      user: influencer.uuid,
       userType: 'influencer'
     }
 

@@ -45,14 +45,14 @@ export const createBusiness = async (req, res) => {
     const business = await BusinessRegistration.create(payload)
 
     const accessToken = generateAccessToken({
-      uuid: business.uuid,
+      userId: business.uuid,
       userType: 'business'
     })
 
     const refreshToken = generateRefreshToken({
-      uuid: business.uuid,
+      userId: business.uuid,
       userType: 'business'
-    })
+    })  
 
     console.log('Business created successfully:', business.toJSON())
 
