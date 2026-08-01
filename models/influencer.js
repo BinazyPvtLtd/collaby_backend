@@ -7,9 +7,9 @@ const Influencer = sequelize.define(
   {
     // ✅ ADD THIS BLOCK (MOST IMPORTANT)
     id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
     },
     fullName: {
       type: DataTypes.STRING,
@@ -21,11 +21,14 @@ const Influencer = sequelize.define(
     },
 
     userId: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       allowNull: false,
-      field: 'user_id'
+      field: 'user_id',
+      references: {
+        model: 'influencersUser', // use your actual table name
+        key: 'id'
+      }
     },
-
     slug: {
       type: DataTypes.STRING,
       unique: true,
@@ -206,10 +209,12 @@ function sanitizeInfluencer (data) {
     data.rateCard = Number(data.rateCard)
   }
 }
-Influencer.associate = models => {
-  Influencer.belongsTo(models.User, {
-    foreignKey: 'userId'
-  })
-}
+Influencer.associate = (models) => {
+  Influencer.belongsTo(models.InfluencerUser, {
+    foreignKey: "userId",
+    targetKey: "id",
+    as: "user",
+  });
+};
 
 export default Influencer

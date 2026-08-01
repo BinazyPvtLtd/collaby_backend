@@ -1,32 +1,63 @@
-import Influencer from "../models/influencer.js";
-import sequelize from "../config/database.js";
-import slugify from "slugify";
+import Influencer from '../models/influencer.js'
+import sequelize from '../config/database.js'
+import InfluencerUser from '../models/InfluencerUser.js'
+import slugify from 'slugify'
 import {
   convertToString,
   formatGender,
-  parseArray,
-} from "../HelperFunction/Helper.js";
-import path from "path";
-import fs from "fs";
-import { validate as isUUID } from "uuid";
+  parseArray
+} from '../HelperFunction/Helper.js'
+import path from 'path'
+import fs from 'fs'
+import { validate as isUUID } from 'uuid'
 
 export const createInfluencer = async (req, res) => {
-  const transaction = await sequelize.transaction();
+  const transaction = await sequelize.transaction()
 
   try {
-    const userId = req.user.userId;
-    const exists = await Influencer.findOne({
-      where: { userId }, // ✅ use model field
-    });
+    console.log('========== CREATE INFLUENCER ==========')
+    console.log('req.user:', req.user)
 
-    if (exists) {
-      await transaction.rollback();
-      return res.status(400).json({
+    const userId = req.user.userId
+
+    // Check influencer registration exists
+    const influencerUser = await InfluencerUser.findByPk(userId, {
+      transaction
+    })
+
+    if (!influencerUser) {
+      await transaction.rollback()
+      return res.status(404).json({
         success: false,
-        message: "Influencer already exists for this user",
-      });
+        message: 'No influencer user found. Please complete registration first.'
+      })
     }
 
+    // Check profile already exists
+    const exists = await Influencer.findOne({
+      where: { userId },
+      transaction
+    })
+
+    if (exists) {
+      await transaction.rollback()
+      return res.status(400).json({
+        success: false,
+        message: 'Influencer profile already exists.'
+      })
+    }
+
+    console.log('Existing influencer:', exists)
+
+    if (exists) {
+      await transaction.rollback()
+      return res.status(400).json({
+        success: false,
+        message: 'Influencer already exists for this user'
+      })
+    }
+
+    // rest of your code...
     const {
       fullName,
       instagramUsername,
@@ -41,14 +72,14 @@ export const createInfluencer = async (req, res) => {
       portfolioLinks,
       languages,
       gender,
-      contentCategories,
-    } = req.body;
+      contentCategories
+    } = req.body
 
     // ✅ slug fix
     const slug = slugify(`${fullName}-${instagramUsername}`, {
       lower: true,
-      strict: true,
-    });
+      strict: true
+    })
 
     const influencer = await Influencer.create(
       {
@@ -68,47 +99,61 @@ export const createInfluencer = async (req, res) => {
         gender: formatGender(gender),
         contentCategories: parseArray(contentCategories),
 
-        userId: userId, // ✅ IMPORTANT FIX
+        userId: userId // ✅ IMPORTANT FIX
       },
-      { transaction },
-    );
+      { transaction }
+    )
 
-    await transaction.commit();
+    await transaction.commit()
 
     return res.status(201).json({
       success: true,
-      data: influencer,
-    });
+      data: influencer
+    })
   } catch (error) {
-    await transaction.rollback();
-    return res.status(500).json({ error: error.message });
+    await transaction.rollback()
+
+    if (
+      error.name === 'SequelizeForeignKeyConstraintError' ||
+      error.original?.code === '23503'
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: 'No influencer user found. Please complete registration first.'
+      })
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    })
   }
-};
+}
 
 // UPDATE
 export const updateInfluencer = async (req, res) => {
-  const transaction = await sequelize.transaction();
+  const transaction = await sequelize.transaction()
 
   try {
-    const { id } = req.params;
+    const { id } = req.params
 
     if (!isUUID(id)) {
-      await transaction.rollback();
+      await transaction.rollback()
       return res.status(400).json({
         success: false,
-        message: "Invalid influencer ID (UUID required)",
-      });
+        message: 'Invalid influencer ID (UUID required)'
+      })
     }
 
-    const influencer = await Influencer.findByPk(id);
+    const influencer = await Influencer.findByPk(id)
 
     // ✅ FIRST check existence
     if (!influencer) {
-      await transaction.rollback();
+      await transaction.rollback()
       return res.status(404).json({
         success: false,
-        message: "Influencer not found",
-      });
+        message: 'Influencer not found'
+      })
     }
 
     // ❌ 403 CHECK REMOVED HERE
@@ -127,78 +172,80 @@ export const updateInfluencer = async (req, res) => {
       gender,
       dob,
       email,
-      contentCategories,
-    } = req.body;
+      contentCategories
+    } = req.body
 
-    const parseArray = (field) => {
-      if (!field) return [];
-      if (Array.isArray(field)) return field;
+    const parseArray = field => {
+      if (!field) return []
+      if (Array.isArray(field)) return field
 
-      if (typeof field === "string" && !field.startsWith("[")) {
-        return field.split(",").map((item) => item.trim());
+      if (typeof field === 'string' && !field.startsWith('[')) {
+        return field.split(',').map(item => item.trim())
       }
 
       try {
-        return JSON.parse(field);
+        return JSON.parse(field)
       } catch {
-        return [];
+        return []
       }
-    };
+    }
 
     const parsedFollowers =
       followersCount !== undefined
         ? Number(followersCount)
-        : influencer.followersCount;
+        : influencer.followersCount
 
     const parsedEngagement =
       engagementRate !== undefined
         ? Number(engagementRate)
-        : influencer.engagementRate;
+        : influencer.engagementRate
 
     if (
       instagramUsername &&
       instagramUsername !== influencer.instagramUsername
     ) {
       const existingUser = await Influencer.findOne({
-        where: { instagramUsername },
-      });
+        where: { instagramUsername }
+      })
 
       if (existingUser) {
-        await transaction.rollback();
+        await transaction.rollback()
         return res.status(400).json({
           success: false,
-          message: "Instagram username already exists",
-        });
+          message: 'Instagram username already exists'
+        })
       }
     }
 
     if (email && email !== influencer.email) {
       const existingEmail = await Influencer.findOne({
-        where: { email },
-      });
+        where: { email }
+      })
 
       if (existingEmail) {
-        await transaction.rollback();
+        await transaction.rollback()
         return res.status(400).json({
           success: false,
-          message: "Email already exists",
-        });
+          message: 'Email already exists'
+        })
       }
     }
 
-    let profilePhoto = influencer.profilePhoto;
+    let profilePhoto = influencer.profilePhoto
 
     if (req.file) {
       if (profilePhoto) {
-        const oldImageName = profilePhoto.split("/uploads/")[1];
-        const oldImagePath = path.join("uploads", oldImageName);
+        const oldImageName = profilePhoto.split('/uploads/')[1]
+        const oldImagePath = path.join('uploads', oldImageName)
 
         if (fs.existsSync(oldImagePath)) {
-          fs.unlinkSync(oldImagePath);
+          fs.unlinkSync(oldImagePath)
         }
       }
 
-      profilePhoto = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+      profilePhoto = `${req.protocol}://${req.get('host')}/uploads/${
+        req.file.filename
+      }`
     }
 
     const updatedSlug =
@@ -207,27 +254,27 @@ export const updateInfluencer = async (req, res) => {
             `${fullName || influencer.fullName}-${
               instagramUsername || influencer.instagramUsername
             }`,
-            { lower: true, strict: true },
+            { lower: true, strict: true }
           )
-        : influencer.slug;
+        : influencer.slug
 
-    let formattedGender = influencer.gender;
+    let formattedGender = influencer.gender
 
     if (gender) {
       const temp =
-        gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+        gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase()
 
-      const validGenders = ["Male", "Female", "Other"];
+      const validGenders = ['Male', 'Female', 'Other']
 
       if (!validGenders.includes(temp)) {
-        await transaction.rollback();
+        await transaction.rollback()
         return res.status(400).json({
           success: false,
-          message: "Invalid gender value",
-        });
+          message: 'Invalid gender value'
+        })
       }
 
-      formattedGender = temp;
+      formattedGender = temp
     }
 
     await influencer.update(
@@ -251,119 +298,119 @@ export const updateInfluencer = async (req, res) => {
           ? parseArray(contentCategories)
           : influencer.contentCategories,
         email: email || influencer.email,
-        dob: dob || influencer.dob,
+        dob: dob || influencer.dob
       },
-      { transaction },
-    );
+      { transaction }
+    )
 
-    await transaction.commit();
+    await transaction.commit()
 
     return res.status(200).json({
       success: true,
-      message: "Influencer updated successfully",
-      data: convertToString(influencer.toJSON()),
-    });
+      message: 'Influencer updated successfully',
+      data: convertToString(influencer.toJSON())
+    })
   } catch (error) {
-    await transaction.rollback();
+    await transaction.rollback()
     return res.status(500).json({
       success: false,
-      message: error.message,
-    });
+      message: error.message
+    })
   }
-};
+}
 
 // GET BY ID
 export const getMyInfluencer = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user.userId
 
     const influencer = await Influencer.findOne({
-      where: { user_id: userId }, // ✅ CORRECT
-    });
+      where: { user_id: userId } // ✅ CORRECT
+    })
 
     if (!influencer) {
       return res.status(200).json({
         success: false,
-        message: "Influencer not found",
-      });
+        message: 'Influencer not found'
+      })
     }
 
     return res.status(200).json({
       success: true,
-      data: influencer,
-    });
+      data: influencer
+    })
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message })
   }
-};
+}
 
 //get influencer by user_id
 export const getInfluencerByUserId = async (req, res) => {
   try {
-    const userId = req.user.userId; // ✅ FIXED (was wrong before)
+    const userId = req.user.userId // ✅ FIXED (was wrong before)
 
     const influencer = await Influencer.findOne({
-      where: { user_id: userId }, // ✅ FIXED
-    });
+      where: { user_id: userId } // ✅ FIXED
+    })
 
     if (!influencer) {
       return res.status(404).json({
         success: false,
-        message: "Influencer not found",
-      });
+        message: 'Influencer not found'
+      })
     }
 
     return res.status(200).json({
       success: true,
-      data: influencer,
-    });
+      data: influencer
+    })
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message })
   }
-};
+}
 
 // GET ALL
 export const getAllInfluencers = async (req, res) => {
   try {
     const influencers = await Influencer.findAll({
-      order: [["createdAt", "DESC"]],
-    });
+      order: [['createdAt', 'DESC']]
+    })
 
     return res.status(200).json({
       success: true,
       total: influencers.length,
-      data: influencers,
-    });
+      data: influencers
+    })
   } catch (error) {
-    console.error("GET ALL ERROR:", error);
+    console.error('GET ALL ERROR:', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
-    });
+      message: error.message
+    })
   }
-};
+}
 // DELETE
 export const deleteInfluencer = async (req, res) => {
   try {
-    const influencer = await Influencer.findByPk(req.params.id);
+    const influencer = await Influencer.findByPk(req.params.id)
 
     if (!influencer) {
-      return res.status(404).json({ message: "Influencer not found" });
+      return res.status(404).json({ message: 'Influencer not found' })
     }
 
     // ✅ ownership check
     if (influencer.user_id !== req.user.userId) {
       return res.status(403).json({
-        message: "Unauthorized",
-      });
+        message: 'Unauthorized'
+      })
     }
 
-    await influencer.destroy();
+    await influencer.destroy()
 
     return res.status(200).json({
-      message: "Influencer deleted successfully",
-    });
+      message: 'Influencer deleted successfully'
+    })
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message })
   }
-};
+}

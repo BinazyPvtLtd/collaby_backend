@@ -1,6 +1,8 @@
 import { Sequelize } from "sequelize";
 import dotenv from "dotenv";
+
 dotenv.config();
+
 const sequelize = new Sequelize(
   process.env.DB_NAME,
   process.env.DB_USER,
@@ -8,18 +10,23 @@ const sequelize = new Sequelize(
   {
     host: process.env.DB_HOST,
     dialect: "postgres",
-    logging: false,
+
+    // Log every SQL query
+    logging: (sql) => {
+      console.log("\n========== SQL ==========");
+      console.log(sql);
+      console.log("=========================\n");
+    },
 
     pool: {
-      max: 5,        // 🔥 max connections
+      max: 5,
       min: 0,
       acquire: 30000,
-      idle: 10000
-    }
+      idle: 10000,
+    },
   }
 );
 
-// test connection once
 export const connectDB = async () => {
   try {
     await sequelize.authenticate();

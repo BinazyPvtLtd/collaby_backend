@@ -108,5 +108,12 @@ function sanitizeInfluencerUser(data) {
     data.refreshToken = xss(data.refreshToken.trim());
   }
 }
+InfluencerUser.associate = (models) => {
+  InfluencerUser.hasOne(models.Influencer, {
+    foreignKey: "userId",
+    sourceKey: "id",
+    as: "profile",
+  });
+};
 
 export default InfluencerUser;

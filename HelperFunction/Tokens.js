@@ -1,17 +1,18 @@
-import jwt from "jsonwebtoken";
+import jwt from 'jsonwebtoken'
 
-export const generateAccessToken = (payload) => {
+export const generateAccessToken = payload => {
   if (!process.env.JWT_SECRET) {
-    throw new Error("JWT_SECRET is missing in environment variables");
+    throw new Error('JWT_SECRET is missing in environment variables')
   }
+  console.log('TOKEN PAYLOAD:', payload)
+  return jwt.sign(payload, process.env.JWT_SECRET)
+}
 
-  return jwt.sign(payload, process.env.JWT_SECRET);
-};
-
-export const generateRefreshToken = (payload) => {
+export const generateRefreshToken = payload => {
   if (!process.env.JWT_REFRESH_SECRET) {
-    throw new Error("JWT_REFRESH_SECRET is missing in environment variables");
+    throw new Error('JWT_REFRESH_SECRET is missing in environment variables')
   }
+  console.log('TOKEN PAYLOAD:', payload)
 
-  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET);
-};
+  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET)
+}

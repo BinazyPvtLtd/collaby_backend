@@ -71,7 +71,6 @@ export const createInfluencer = async (req, res) => {
       gender: formattedGender
     })
 
- 
     // JWT Payload
     const tokenPayload = {
       userId: influencer.id,
@@ -80,6 +79,9 @@ export const createInfluencer = async (req, res) => {
 
     // Generate Tokens
     const accessToken = generateAccessToken(tokenPayload)
+
+    console.log('Generated Token:', accessToken)
+    console.log('Decoded Generated Token:', jwt.decode(accessToken))
     const refreshToken = generateRefreshToken(tokenPayload)
 
     const influencerData = influencer.toJSON()
