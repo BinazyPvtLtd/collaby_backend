@@ -20,7 +20,7 @@ export const createBusinessHackDetail = async (req, res) => {
     const campaign = await BusinessHack.findOne({
       where: {
         id: businessHackId,
-        user_id: req.user.uuid,
+        user_id: req.user.userId,
       },
     });
     console.log("Campaign found for Step-2 creation:", !!campaign);
@@ -44,7 +44,7 @@ export const createBusinessHackDetail = async (req, res) => {
     }
 
     const detail = await BusinessHackDetail.create({
-      user_id: req.user.uuid,
+      user_id: req.user.userId,
       businessHackId,
       noOfReels,
       noOfPosts,
@@ -73,7 +73,7 @@ export const getAllBusinessHackDetails = async (req, res) => {
   try {
     const details = await BusinessHackDetail.findAll({
       where: {
-        user_id: req.user.uuid,
+        user_id: req.user.userId,
       },
       include: BusinessHack,
       order: [["id", "DESC"]],
@@ -97,12 +97,12 @@ export const getBusinessHackDetailById = async (req, res) => {
     const detail = await BusinessHackDetail.findOne({
       where: {
         id: req.params.id,
-        user_id: req.user.uuid,
+        user_id: req.user.userId,
       },
       include: {
         model: BusinessHack,
         where: {
-          user_id: req.user.uuid, // 🔐 double security
+          user_id: req.user.userId, // 🔐 double security
         },
       },
     });
@@ -132,12 +132,12 @@ export const updateBusinessHackDetail = async (req, res) => {
     const detail = await BusinessHackDetail.findOne({
       where: {
         id: req.params.id,
-        user_id: req.user.uuid,
+        user_id: req.user.userId,
       },
       include: {
         model: BusinessHack,
         where: {
-          user_id: req.user.uuid, // 🔐 parent ownership check
+          user_id: req.user.userId, // 🔐 parent ownership check
         },
       },
     });
@@ -208,12 +208,12 @@ export const deleteBusinessHackDetail = async (req, res) => {
     const detail = await BusinessHackDetail.findOne({
       where: {
         id: req.params.id,
-        user_id: req.user.uuid,
+        user_id: req.user.userId,
       },
       include: {
         model: BusinessHack,
         where: {
-          user_id: req.user.uuid, // 🔐 parent ownership check
+          user_id: req.user.userId, // 🔐 parent ownership check
         },
       },
     });

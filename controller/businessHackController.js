@@ -16,7 +16,7 @@ export const createBusinessHack = async (req, res) => {
     }
 
     const businessHack = await BusinessHack.create({
-      user_id: req.user.uuid,
+      user_id: req.user.userId, // ✅ IMPORTANT: Associate with the authenticated user
       campaignName,
       state,
       city,

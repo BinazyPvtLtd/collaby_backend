@@ -227,7 +227,7 @@ export const verifyOtp = async (req, res) => {
     // Generate JWT Payload
     // ===============================
     const payload = {
-      uuid: dbUser.id,
+      userId: dbUser.id,
       phone,
       userType
     }
