@@ -223,11 +223,14 @@ export const verifyOtp = async (req, res) => {
       console.log('✅ User created:', dbUser.id)
     }
 
-    // ===============================
+// ===============================
     // Generate JWT Payload
     // ===============================
+    // 🔐 IMPORTANT: Use the SAME userId as the registration flow so that
+    // protected APIs (which query by req.user.userId) can find the data
+    // created during registration. Business → business.uuid, Influencer → influencer.id
     const payload = {
-      userId: dbUser.id,
+      userId: userType === 'business' ? user.uuid : user.id,
       phone,
       userType
     }
@@ -279,10 +282,15 @@ export const verifyOtp = async (req, res) => {
 ========================================================= */
 export const logout = async (req, res) => {
   try {
-    const { userId } = req.user
+    const { userId, phone } = req.user
 
-    // ✅ Find User
-    const user = await User.findByPk(userId)
+    // ✅ Find User by userId (User table id) — fall back to phone
+    //    because the token now carries business.uuid / influencer.id
+    let user = await User.findByPk(userId)
+
+    if (!user && phone) {
+      user = await User.findOne({ where: { phone } })
+    }
 
     if (!user) {
       return res.status(404).json({
@@ -345,8 +353,13 @@ export const refreshAccessToken = async (req, res) => {
       })
     }
 
-    // ✅ Find User (userId is UUID string)
-    const user = await User.findByPk(decoded.userId)
+// ✅ Find User — token now carries business.uuid / influencer.id,
+    //    so fall back to finding by phone when userId is not the User table id
+    let user = await User.findByPk(decoded.userId)
+
+    if (!user && decoded.phone) {
+      user = await User.findOne({ where: { phone: decoded.phone } })
+    }
 
     if (!user) {
       return res.status(404).json({
@@ -366,10 +379,11 @@ export const refreshAccessToken = async (req, res) => {
     // ====================================================
     // ✅ GENERATE NEW ACCESS TOKEN
     // ====================================================
+    // Preserve the original userId (business.uuid / influencer.id) so
+    // protected APIs keep working after refresh.
 
     const newAccessToken = generateAccessToken({
-      userId: user.id,
-      uuid: user.uuid,
+      userId: decoded.userId,
       phone: decoded.phone,
       userType: decoded.userType
     })
