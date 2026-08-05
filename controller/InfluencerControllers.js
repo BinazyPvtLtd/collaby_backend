@@ -137,16 +137,19 @@ export const updateInfluencer = async (req, res) => {
   try {
     const { id } = req.params
 
-    if (!isUUID(id)) {
+    const influencerId = parseInt(id, 10)
+
+    if (isNaN(influencerId) || influencerId <= 0) {
       await transaction.rollback()
       return res.status(400).json({
         success: false,
-        message: 'Invalid influencer ID (UUID required)'
+        message: 'Invalid influencer ID'
       })
     }
 
-    const influencer = await Influencer.findByPk(id)
-
+    const influencer = await Influencer.findByPk(influencerId, {
+      transaction
+    })
     // ✅ FIRST check existence
     if (!influencer) {
       await transaction.rollback()
