@@ -87,8 +87,8 @@ const BusinessProfile = sequelize.define(
         is: /^[1-9][0-9]{5}$/, // Indian PIN code
       },
     },
-    user_id: {
-      type: DataTypes.UUID,
+user_id: {
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
   },

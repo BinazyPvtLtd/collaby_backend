@@ -89,8 +89,8 @@ const BusinessHacks = sequelize.define(
         sanitizeVideo(data);
       },
     },
-    user_id: {
-      type: DataTypes.UUID,
+user_id: {
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
   },

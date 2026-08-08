@@ -37,8 +37,8 @@ const Campaign = sequelize.define(
         max: 100000,
       },
     },
-    user_id: {
-      type: DataTypes.UUID,
+user_id: {
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
     deliverables: {

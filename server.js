@@ -37,6 +37,7 @@ import applicationRoutes from './routes/applicationRoutes.js'
 import dealRoutes from './routes/dealRoutes.js'
 import { seedCampaignTypes } from './seeders/seedCampaignTypes.js'
 import { runAllSeeders } from './seeders/runAllSeeders.js'
+import notificationRoutes from './routes/notification.routes.js'
 import './models/Associations.js'
 
 const app = express()
@@ -114,6 +115,7 @@ app.use('/api/products', productRoutes)
 app.use('/api/all-detail', allCampaignDataRoutes)
 app.use('/api/applications', applicationRoutes)
 app.use('/api/deals', dealRoutes)
+app.use('/api/notifications', notificationRoutes)
 
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack)
@@ -130,23 +132,38 @@ const startServer = async () => {
     await sequelize.authenticate()
     console.log('Database connected successfully')
 
-    // await sequelize.sync({ alter: true })
-    await sequelize.sync() // Use 'alter' to update tables without dropping them
-    console.log('Tables synced')
+    if (process.env.DB_FORCE_SYNC === 'true') {
+      console.log('⚠️ DB_FORCE_SYNC=true')
+      console.log('⚠️ Dropping and recreating all database tables...')
 
-    if (process.env.RUN_SEEDER === 'true') {
-      await runAllSeeders()
+      await sequelize.sync({ force: true })
+
+      console.log('✅ Tables recreated successfully')
+    } else {
+      console.log('🔄 Synchronizing database...')
+
+      await sequelize.sync({ alter: true })
+
+      console.log('✅ Tables synchronized successfully')
     }
 
-    const PORT = process.env.PORT
+    if (process.env.RUN_SEEDER === 'true') {
+      console.log('🌱 Running seeders...')
+      await runAllSeeders()
+      console.log('✅ Seeders completed')
+    }
+
+    const PORT = process.env.PORT || 5000
 
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server is running on ${PORT}`)
+      console.log(`🚀 Server is running on port ${PORT}`)
     })
   } catch (error) {
-    console.error('DB Error:', error.message)
+    console.error('❌ DB Error:', error)
+
     if (error.errors) {
       console.log('Validation Errors:')
+
       error.errors.forEach(err => {
         console.log({
           message: err.message,
@@ -156,6 +173,8 @@ const startServer = async () => {
         })
       })
     }
+
+    process.exit(1)
   }
 }
 

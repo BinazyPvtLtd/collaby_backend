@@ -68,8 +68,8 @@ const Brand = sequelize.define(
         len: [0, 2000],
       },
     },
-    user_id: {
-      type: DataTypes.UUID,
+user_id: {
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
   },

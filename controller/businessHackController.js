@@ -1,5 +1,8 @@
 import BusinessHack from "../models/BusinessHacks.js";
 import { convertIdToStringBusiness } from "../HelperFunction/Helper.js";
+import { NotificationTypes } from "../constants/notificationTypes.js";
+import { ClickActions } from "../constants/clickActions.js";
+import notificationService from "../services/notification.service.js";
 
 // ✅ CREATE
 export const createBusinessHack = async (req, res) => {
@@ -21,6 +24,20 @@ export const createBusinessHack = async (req, res) => {
       state,
       city,
       campaignType,
+    });
+
+    // Notify influencers (all active) about the new campaign.
+    await notificationService.broadcast({
+      userType: "influencer",
+      title: "New Campaign",
+      body: `A new campaign "${campaignName}" is now live!`,
+      type: NotificationTypes.NEW_CAMPAIGN,
+      clickAction: ClickActions.CAMPAIGN_DETAILS,
+      referenceId: businessHack.id,
+      createdBy: req.user.userId || null,
+      data: {
+        campaignId: String(businessHack.id)
+      }
     });
 
     res.status(201).json({

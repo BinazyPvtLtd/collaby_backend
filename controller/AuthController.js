@@ -1,6 +1,7 @@
 import BusinessRegistration from '../models/Business.js'
 import InfluencerUser from '../models/InfluencerUser.js'
 import User from '../models/User.js'
+import identityService from '../services/identity.service.js'
 
 import {
   generateAccessToken,
@@ -165,13 +166,25 @@ export const firebaseLogin = async (req, res) => {
       dbUser = existingUser
     }
 
+// ===================================================
+    // RESOLVE UNIVERSAL IDENTITY
+    // ===================================================
+    // The notification system (and downstream controllers) rely on the actual
+    // business reference (INTEGER id) or influencer reference (INTEGER id). We now:
+    //   - set `userId` to the REAL business/influencer INTEGER id (backward compat)
+    //   - set `identityId` to the universal UserIdentity.id (notification system)
+    const identity = await identityService.resolve({
+      userId: userType === 'business' ? user.id : user.id,
+      userType
+    })
+
     // ===================================================
     // TOKEN PAYLOAD
     // ===================================================
 
     const payload = {
-      userId: dbUser.id,
-      uuid: dbUser.uuid,
+      identityId: identity.id,
+      userId: userType === 'business' ? user.id : user.id,
       phone,
       userType
     }
@@ -204,9 +217,8 @@ export const firebaseLogin = async (req, res) => {
       accessToken,
       refreshToken,
 
-      user: {
+user: {
         id: dbUser.id,
-        uuid: dbUser.uuid,
         phone,
         type: userType
       }

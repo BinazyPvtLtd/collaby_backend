@@ -1,4 +1,7 @@
 import Referral from "../models/Referral.js";
+import { NotificationTypes } from "../constants/notificationTypes.js";
+import { ClickActions } from "../constants/clickActions.js";
+import notificationService from "../services/notification.service.js";
 
 /* =========================
    CREATE Referral
@@ -18,6 +21,27 @@ export const createReferral = async (req, res) => {
       referral_name,
       referred_by,
     });
+
+    // Notify the referrer that they earned a referral bonus.
+    if (user_id && req.user?.userType) {
+      await notificationService
+        .sendNotification({
+          users: [{ userId: user_id, userType: req.user.userType }],
+          title: "Referral Bonus",
+          body: `You earned a referral bonus for referring ${referred_by || "a new user"}!`,
+          type: NotificationTypes.REFERRAL_BONUS,
+          clickAction: ClickActions.REFERRAL,
+          referenceId: referral.id,
+          createdBy: req.user.userId || null,
+          data: {
+            referralId: String(referral.id),
+            referralName: referral_name || "",
+          },
+        })
+        .catch((e) => {
+          console.error("REFERRAL NOTIFICATION ERROR:", e.message);
+        });
+    }
 
     res.status(201).json({
       status: true,

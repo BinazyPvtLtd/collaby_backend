@@ -1,10 +1,11 @@
 import Application from '../models/Application.js'
 import BusinessRegistration from '../models/Business.js'
 import InfluencerUser from '../models/InfluencerUser.js'
-import validator from 'validator'
 import User from '../models/User.js'
 import BusinessHack from '../models/BusinessHacks.js'
-const { isUUID } = validator
+import { NotificationTypes } from '../constants/notificationTypes.js'
+import { ClickActions } from '../constants/clickActions.js'
+import notificationService from '../services/notification.service.js'
 /**
  * @desc    Influencer applies to a campaign
  * @route   POST /api/applications
@@ -32,7 +33,7 @@ export const applyToCampaign = async (req, res) => {
       })
     }
 
-    const influencerId = Number(user.userId)
+const influencerId = Number(user.userId)
 
     if (isNaN(influencerId) || influencerId <= 0) {
       return res.status(400).json({
@@ -43,10 +44,19 @@ export const applyToCampaign = async (req, res) => {
 
     const campaignIdNum = Number(campaignId)
 
-    if (isNaN(campaignIdNum) || campaignIdNum <= 0) {
+    if (!campaignId || isNaN(campaignIdNum) || campaignIdNum <= 0) {
       return res.status(400).json({
         success: false,
         message: 'Invalid campaign ID'
+      })
+    }
+
+    const campaign = await BusinessHack.findByPk(campaignIdNum)
+
+    if (!campaign) {
+      return res.status(404).json({
+        success: false,
+        message: 'Campaign not found'
       })
     }
 
@@ -73,6 +83,34 @@ export const applyToCampaign = async (req, res) => {
       brand_id: brandId,
       pitch_message: pitchMessage,
       expected_rate: expectedRate
+    })
+
+    await notificationService.sendNotification({
+      users: [
+        {
+          userId: campaign.user_id,
+
+          userType: 'business'
+        }
+      ],
+
+      title: 'New Application',
+
+      body: 'An influencer applied to your campaign.',
+
+      type: NotificationTypes.APPLICATION_RECEIVED,
+
+      clickAction: ClickActions.APPLICATION_DETAILS,
+
+      referenceId: application.id,
+
+      createdBy: influencerId,
+
+      data: {
+        applicationId: application.id.toString(),
+
+        campaignId: campaign.id.toString()
+      }
     })
 
     return res.status(201).json({
@@ -129,7 +167,7 @@ export const getMyApplications = async (req, res) => {
       },
       order: [['createdAt', 'DESC']]
     })
-    
+
     return res.json({
       success: true,
       count: applications.length,
@@ -329,8 +367,24 @@ export const acceptApplication = async (req, res) => {
       { transaction }
     )
 
-    // ✅ Commit transaction
+// ✅ Commit transaction
     await transaction.commit()
+
+    // Notify the influencer that their application was accepted (fire-after-commit).
+    await notificationService.sendNotification({
+      users: [{ userId: application.influencer_id, userType: 'influencer' }],
+      title: 'Application Accepted',
+      body: 'Congratulations! Your application has been accepted.',
+      type: NotificationTypes.APPLICATION_ACCEPTED,
+      clickAction: ClickActions.DEAL_DETAILS,
+      referenceId: deal.id,
+      createdBy: user.userId || null,
+      data: {
+        dealId: deal.id.toString(),
+        applicationId: application.id.toString(),
+        campaignId: String(application.campaign_id)
+      }
+    })
 
     return res.status(200).json({
       success: true,
@@ -408,8 +462,23 @@ export const rejectApplication = async (req, res) => {
       })
     }
 
-    application.status = 'rejected'
+application.status = 'rejected'
     await application.save()
+
+    // Notify the influencer that their application was rejected.
+    await notificationService.sendNotification({
+      users: [{ userId: application.influencer_id, userType: 'influencer' }],
+      title: 'Application Rejected',
+      body: 'Unfortunately your application has been rejected.',
+      type: NotificationTypes.APPLICATION_REJECTED,
+      clickAction: ClickActions.APPLICATION_DETAILS,
+      referenceId: application.id,
+      createdBy: user.userId || null,
+      data: {
+        applicationId: application.id.toString(),
+        campaignId: String(application.campaign_id)
+      }
+    })
 
     return res.json({
       success: true,

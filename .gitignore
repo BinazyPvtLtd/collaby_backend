@@ -85,3 +85,6 @@ build/
 *.ntvs*
 *.njsproj
 *.sln
+
+# Firebase Notification service account keys
+src/config/firebase/serviceAccountKey.json

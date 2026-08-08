@@ -1,4 +1,7 @@
 import Deal from "../models/Deal.js";
+import { NotificationTypes } from "../constants/notificationTypes.js";
+import { ClickActions } from "../constants/clickActions.js";
+import notificationService from "../services/notification.service.js";
 /**
  * @desc Get all deals for logged-in influencer
  * @route GET /api/deals/influencer
@@ -96,6 +99,21 @@ export const submitWork = async (req, res) => {
 
     await deal.save();
 
+    // Notify the business that the influencer submitted work.
+    await notificationService.sendNotification({
+      users: [{ userId: deal.business_id, userType: "business" }],
+      title: "Work Submitted",
+      body: "An influencer has submitted work for your deal.",
+      type: NotificationTypes.DEAL_UPDATED,
+      clickAction: ClickActions.DEAL,
+      referenceId: deal.id,
+      createdBy: req.user.userId || null,
+      data: {
+        dealId: deal.id.toString(),
+        campaignId: String(deal.campaign_id)
+      }
+    });
+
     res.json({
       success: true,
       message: "Work submitted successfully",
@@ -174,10 +192,25 @@ export const approveWork = async (req, res) => {
       });
     }
 
-    deal.deal_status = "approved";
+deal.deal_status = "approved";
     deal.approved_at = new Date();
 
     await deal.save();
+
+    // Notify the influencer that their work was approved (deal completed).
+    await notificationService.sendNotification({
+      users: [{ userId: deal.influencer_id, userType: "influencer" }],
+      title: "Deal Completed",
+      body: "Your submitted work has been approved. Deal completed!",
+      type: NotificationTypes.DEAL_COMPLETED,
+      clickAction: ClickActions.DEAL,
+      referenceId: deal.id,
+      createdBy: req.user.userId || null,
+      data: {
+        dealId: deal.id.toString(),
+        campaignId: String(deal.campaign_id)
+      }
+    });
 
     // 🔥 Payment trigger will be added later
 

@@ -1,6 +1,6 @@
 import influencersUser from '../models/InfluencerUser.js'
 import BusinessRegistration from '../models/Business.js'
-import { v4 as uuidv4 } from 'uuid'
+import identityService from '../services/identity.service.js'
 import jwt from 'jsonwebtoken'
 import { convertToString } from '../HelperFunction/Helper.js'
 import {
@@ -71,8 +71,15 @@ export const createInfluencer = async (req, res) => {
       gender: formattedGender
     })
 
+// Resolve universal identity for the newly created influencer.
+    const identity = await identityService.resolve({
+      userId: influencer.id,
+      userType: 'influencer'
+    })
+
     // JWT Payload
     const tokenPayload = {
+      identityId: identity.id,
       userId: influencer.id,
       userType: 'influencer'
     }

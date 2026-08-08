@@ -9,7 +9,6 @@ import {
 } from '../HelperFunction/Helper.js'
 import path from 'path'
 import fs from 'fs'
-import { validate as isUUID } from 'uuid'
 
 export const createInfluencer = async (req, res) => {
   const transaction = await sequelize.transaction()

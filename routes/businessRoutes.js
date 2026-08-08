@@ -2,7 +2,7 @@ import express from "express";
 import {
   createBusiness,
   getAllBusinesses,
-  getBusinessByUUID,
+  getBusinessById,
   updateBusiness,
   deleteBusinessByPhone,
 } from "../controller/businessController.js";
@@ -11,7 +11,7 @@ const router = express.Router();
 
 router.post("/register", createBusiness);
 router.get("/", verifyToken, getAllBusinesses);
-router.get("/:id", verifyToken, getBusinessByUUID);
+router.get("/:id", verifyToken, getBusinessById);
 router.put("/:id", verifyToken, updateBusiness);
 router.delete("/:phone", deleteBusinessByPhone);
 export default router;

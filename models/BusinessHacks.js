@@ -1,13 +1,12 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/database.js";
 import xss from "xss";
-import { validate as isUUID } from "uuid";
 
 const BusinessHack = sequelize.define(
   "BusinessHack",
   {
     user_id: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
 
@@ -70,13 +69,6 @@ function sanitizeBusinessHack(data) {
 
   if (data.city) {
     data.city = xss(data.city.trim());
-  }
-
-  // safer number conversion
-  if (data.user_id !== undefined) {
-    if (!isUUID(data.user_id)) {
-      throw new Error("Invalid user_id");
-    }
   }
 }
 

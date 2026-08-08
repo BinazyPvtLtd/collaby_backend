@@ -34,8 +34,8 @@ const InfluencerDashboard = sequelize.define(
         sanitizeDashboard(data);
       },
     },
-    user_id: {
-      type: DataTypes.UUID,
+user_id: {
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
   },

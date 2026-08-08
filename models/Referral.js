@@ -11,8 +11,8 @@ const Referral = sequelize.define(
       primaryKey: true,
     },
 
-    user_id: {
-      type: DataTypes.UUID,
+user_id: {
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
 

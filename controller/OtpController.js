@@ -228,9 +228,9 @@ export const verifyOtp = async (req, res) => {
     // ===============================
     // 🔐 IMPORTANT: Use the SAME userId as the registration flow so that
     // protected APIs (which query by req.user.userId) can find the data
-    // created during registration. Business → business.uuid, Influencer → influencer.id
+    // created during registration. Business → business.id, Influencer → influencer.id
     const payload = {
-      userId: userType === 'business' ? user.uuid : user.id,
+      userId: userType === 'business' ? user.id : user.id,
       phone,
       userType
     }
@@ -285,7 +285,7 @@ export const logout = async (req, res) => {
     const { userId, phone } = req.user
 
     // ✅ Find User by userId (User table id) — fall back to phone
-    //    because the token now carries business.uuid / influencer.id
+//    because the token now carries business.id / influencer.id
     let user = await User.findByPk(userId)
 
     if (!user && phone) {
@@ -353,7 +353,7 @@ export const refreshAccessToken = async (req, res) => {
       })
     }
 
-// ✅ Find User — token now carries business.uuid / influencer.id,
+// ✅ Find User — token now carries business.id / influencer.id,
     //    so fall back to finding by phone when userId is not the User table id
     let user = await User.findByPk(decoded.userId)
 
@@ -379,7 +379,7 @@ export const refreshAccessToken = async (req, res) => {
     // ====================================================
     // ✅ GENERATE NEW ACCESS TOKEN
     // ====================================================
-    // Preserve the original userId (business.uuid / influencer.id) so
+// Preserve the original userId (business.id / influencer.id)
     // protected APIs keep working after refresh.
 
     const newAccessToken = generateAccessToken({

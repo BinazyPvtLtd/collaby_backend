@@ -5,10 +5,10 @@ import xss from "xss";
 const BusinessRegistration = sequelize.define(
   "BusinessRegistration",
   {
-    uuid: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      unique: true,
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
     },
 
     businessName: {
@@ -58,12 +58,9 @@ const BusinessRegistration = sequelize.define(
       },
     },
 
-    business_user_id: {
-      type: DataTypes.UUID,
+business_user_id: {
+      type: DataTypes.INTEGER,
       allowNull: true,
-      validate: {
-        isUUID: 4,
-      },
     },
 
     refreshToken: {

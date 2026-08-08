@@ -10,8 +10,8 @@ const Product = sequelize.define(
       primaryKey: true,
       autoIncrement: true,
     },
-    user_id: {
-      type: DataTypes.UUID,
+user_id: {
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
     productName: {

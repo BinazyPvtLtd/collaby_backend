@@ -103,8 +103,8 @@ const BusinessHackDetail = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
-    user_id: {
-      type: DataTypes.UUID,
+user_id: {
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
   },

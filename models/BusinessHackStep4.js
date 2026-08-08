@@ -56,8 +56,8 @@ const BusinessHackStep4 = sequelize.define(
         },
       },
     },
-    user_id: {
-      type: DataTypes.UUID,
+user_id: {
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
   },

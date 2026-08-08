@@ -1,9 +1,8 @@
 import { convertToString } from '../HelperFunction/Helper.js'
 import Influencer from '../models/InfluencerUser.js'
 import BusinessRegistration from '../models/Business.js'
-import { v4 as uuidv4 } from 'uuid'
+import identityService from '../services/identity.service.js'
 import { ValidationError } from 'sequelize'
-import jwt from 'jsonwebtoken'
 import {
   generateAccessToken,
   generateRefreshToken
@@ -37,22 +36,28 @@ export const createBusiness = async (req, res) => {
       })
     }
 
-    const payload = {
+const payload = {
       ...req.body,
       gstNumber: req.body.gstNumber || null
     }
 
     const business = await BusinessRegistration.create(payload)
 
-    const accessToken = generateAccessToken({
-      userId: business.uuid,
+// Resolve the universal identity for the newly created business.
+    const identity = await identityService.resolve({
+      userId: business.id,
       userType: 'business'
     })
 
-    const refreshToken = generateRefreshToken({
-      userId: business.uuid,
+    const tokenPayload = {
+      identityId: identity.id,
+      userId: business.id,
       userType: 'business'
-    })  
+    }
+
+    const accessToken = generateAccessToken(tokenPayload)
+
+    const refreshToken = generateRefreshToken(tokenPayload)
 
     console.log('Business created successfully:', business.toJSON())
 
@@ -116,7 +121,7 @@ export const createBusiness = async (req, res) => {
 // ✅ GET ALL Businesses (Only Logged-in User)
 export const getAllBusinesses = async (req, res) => {
   try {
-    console.log('Logged-in User UUID:', req.user.userId) // Debugging line
+console.log('Logged-in User ID:', req.user.userId) // Debugging line
 
     const businesses = await BusinessRegistration.findAll({
       // where: { business_user_id: req.user.userId },
@@ -136,17 +141,20 @@ export const getAllBusinesses = async (req, res) => {
   }
 }
 
-// ✅ GET Single Business (by UUID)
-export const getBusinessByUUID = async (req, res) => {
+// ✅ GET Single Business (by INTEGER id)
+export const getBusinessById = async (req, res) => {
   try {
-    const { uuid } = req.params
+    const id = Number(req.params.id)
+
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid business id'
+      })
+    }
 
     const business = await BusinessRegistration.findOne({
-      where: {
-        uuid,
-        // business_user_id: req.user.userId,
-        business_user_id: req.user.userId
-      }
+      where: { id }
     })
 
     if (!business) {
@@ -168,17 +176,20 @@ export const getBusinessByUUID = async (req, res) => {
   }
 }
 
-// ✅ UPDATE Business (by UUID)
+// ✅ UPDATE Business (by INTEGER id)
 export const updateBusiness = async (req, res) => {
   try {
-    const { uuid } = req.params
+    const id = Number(req.params.id)
+
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid business id'
+      })
+    }
 
     const business = await BusinessRegistration.findOne({
-      where: {
-        uuid,
-        // business_user_id: req.user.userId,
-        business_user_id: req.user.userId
-      }
+      where: { id }
     })
 
     if (!business) {
@@ -203,7 +214,7 @@ export const updateBusiness = async (req, res) => {
   }
 }
 
-// ✅ DELETE Business (by UUID)
+// ✅ DELETE Business (by phone)
 export const deleteBusinessByPhone = async (req, res) => {
   try {
     const { phone } = req.params

@@ -1,7 +1,6 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/database.js";
 import xss from "xss";
-import { validate as isUUID } from "uuid";
 
 const Deal = sequelize.define(
   "Deal",
@@ -25,11 +24,11 @@ const Deal = sequelize.define(
     },
 
     influencer_id: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
     business_id: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
 
@@ -110,7 +109,7 @@ const Deal = sequelize.define(
       validate: { len: [0, 150] },
     },
     user_id: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
   },

@@ -1,21 +1,40 @@
-# Authentication Bug Fix — Logout/Re-login Protected API Failure
+# UUID → INTEGER Migration TODO
 
-## Root Cause
-JWT `userId` was inconsistent between the two auth flows:
-- **Register** (`POST /api/business/register`): `userId = business.uuid`
-- **Login** (`POST /api/auth/verify-otp`): `userId = User.id` (different UUID)
+## Phase 1 — Models ✅
+- [x] Business.js: add explicit `id` INTEGER PK, remove `uuid`, `business_user_id` → INTEGER
+- [x] BusinessHacks.js: `user_id` → INTEGER, remove isUUID
+- [x] Campaign.js: `user_id` → INTEGER
+- [x] BusinessHackDetail.js: `user_id` → INTEGER
+- [x] BusinessHackDetail2.js: `user_id` → INTEGER
+- [x] BusinessHackStep4.js: `user_id` → INTEGER
+- [x] BusinessHacksVideo.js: `user_id` → INTEGER
+- [x] Deal.js: `influencer_id`, `business_id`, `user_id` → INTEGER, remove isUUID
+- [x] Brand.js: `user_id` → INTEGER
+- [x] Banner.js: `user_id` → INTEGER
+- [x] BusinessProfile.js: `user_id` → INTEGER
+- [x] InfluencerDashboard.js: `user_id` → INTEGER
+- [x] InHacks.js: `user_id` → INTEGER
+- [x] Product.js: `user_id` → INTEGER
+- [x] Profile.js: `user_id` → INTEGER
+- [x] Referral.js: `user_id` → INTEGER
+- [x] UserIdentity.js: `businessUuid` → `businessId` (INTEGER)
 
-After logout → re-login, protected APIs query `where user_id: req.user.userId` using the wrong id, so they returned no data.
+## Phase 2 — Identity service & JWT ✅
+- [x] services/identity.service.js: businessUuid → businessId
+- [x] controller/businessController.js: use business.id, getBusinessById
+- [x] controller/AuthController.js: use user.id for business
+- [x] controller/OtpController.js: use user.id
+- [x] Remove uuidv4 imports in businessController.js, InfluencerUserController.js
 
-## Steps
-- [x] Read auth flow files (businessRoutes, businessController, OtpController, Tokens, AuthMiddleware, models, controllers)
-- [x] Identify the `userId` mismatch between registration and login token payloads
-- [x] `controller/OtpController.js` — `verifyOtp`: use `business.uuid` / `influencer.id` as `userId` (matches registration)
-- [x] `controller/OtpController.js` — `logout`: fall back to finding `User` by `phone`
-- [x] `controller/OtpController.js` — `refreshAccessToken`: find `User` by `phone` fallback + preserve original `userId` in refreshed token
-- [x] Verify syntax with `node --check`
+## Phase 3 — Controllers ✅
+- [x] ApplicationController.js: remove isUUID import
+- [x] InfluencerControllers.js: remove isUUID import
+- [x] routes/businessRoutes.js: getBusinessById
 
-## Testing
-- [ ] Register a business → confirm protected APIs work
-- [ ] Logout → login again → confirm protected APIs still work
-- [ ] Test refresh-token flow after login
+## Phase 4 — Migration ✅
+- [x] Create migration to convert business_registration to INTEGER
+      (migrations/20260809000001-convert-business-uuid-to-int.cjs)
+
+## Phase 5 — Verification
+- [ ] Provide verification SQL
+- [ ] Provide Postman test sequence
