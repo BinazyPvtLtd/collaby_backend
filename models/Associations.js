@@ -5,7 +5,7 @@ import BusinessHackStep4 from './BusinessHackStep4.js'
 
 import Application from './Application.js'
 import InfluencerUser from './InfluencerUser.js'
-import ContentCategory from './ContentCategory.js'
+import ContentCategory from './contentcategory.js'
 import InfluencerCategory from './InfluencerCategory.js'
 
 import Notification from './Notification.js'
