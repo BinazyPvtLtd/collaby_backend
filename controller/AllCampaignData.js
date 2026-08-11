@@ -1,89 +1,89 @@
-import { Op } from "sequelize";
+import { Op } from 'sequelize'
 
 import {
   BusinessHack,
   BusinessHackDetail,
   BusinessHackStep3,
-  BusinessHackStep4,
-} from "../models/Associations.js";
-import { formatImagePath } from "../HelperFunction/Helper.js";
+  BusinessHackStep4
+} from '../models/Associations.js'
+import { formatImagePath } from '../HelperFunction/Helper.js'
 export const getAllBusinessHackData = async (req, res) => {
   try {
-    console.log("GET ALL BUSINESS HACK DATA CALLED", req.user);
+    console.log('GET ALL BUSINESS HACK DATA CALLED', req.user)
 
-    const role = req.user?.userType; // will be 'influencer' after middleware fix
+    const role = req.user?.userType // will be 'influencer' after middleware fix
 
     // ✅ Only influencer can access this data
-    if (role !== "influencer") {
+    if (role !== 'influencer') {
       return res.status(403).json({
         success: false,
-        message: "Access denied. Only influencers can view this data.",
-      });
+        message: 'Access denied. Only influencers can view this data.'
+      })
     }
     // ✅ Fetch ALL hacks without any condition
     const hacks = await BusinessHack.findAll({
-      order: [["id", "DESC"]],
-      raw: true,
-    });
+      order: [['id', 'DESC']],
+      raw: true
+    })
 
-    console.log("Total Hacks Found:", hacks.length);
+    console.log('Total Hacks Found:', hacks.length)
 
     if (!hacks || hacks.length === 0) {
       return res.status(200).json({
         success: true,
-        message: "No data found",
-        data: [],
-      });
+        message: 'No data found',
+        data: []
+      })
     }
 
-    const hackIds = hacks.map((item) => item.id);
-    console.log("Hack IDs:", hackIds);
+    const hackIds = hacks.map(item => item.id)
+    console.log('Hack IDs:', hackIds)
 
     // ✅ Fetch all related data in parallel
     const [details, step3Data, step4Data] = await Promise.all([
       BusinessHackDetail.findAll({
         where: { businessHackId: { [Op.in]: hackIds } },
-        raw: true,
+        raw: true
       }),
       BusinessHackStep3.findAll({
         where: { businessHackId: { [Op.in]: hackIds } },
-        raw: true,
+        raw: true
       }),
       BusinessHackStep4.findAll({
         where: { businessHackId: { [Op.in]: hackIds } },
-        raw: true,
-      }),
-    ]);
+        raw: true
+      })
+    ])
 
-    console.log("Details:", details.length);
-    console.log("Step3:", step3Data.length);
-    console.log("Step4:", step4Data.length);
+    console.log('Details:', details.length)
+    console.log('Step3:', step3Data.length)
+    console.log('Step4:', step4Data.length)
 
     // ✅ Build maps keyed by businessHackId
-    const detailsMap = {};
-    const step3Map = {};
-    const step4Map = {};
+    const detailsMap = {}
+    const step3Map = {}
+    const step4Map = {}
 
-    details.forEach((item) => (detailsMap[item.businessHackId] = item));
-    step3Data.forEach((item) => (step3Map[item.businessHackId] = item));
-    step4Data.forEach((item) => (step4Map[item.businessHackId] = item));
+    details.forEach(item => (detailsMap[item.businessHackId] = item))
+    step3Data.forEach(item => (step3Map[item.businessHackId] = item))
+    step4Data.forEach(item => (step4Map[item.businessHackId] = item))
 
     // ✅ Merge all data
-    const fullData = hacks.map((hack) => {
-      const step4 = step4Map[hack.id];
+    const fullData = hacks.map(hack => {
+      const step4 = step4Map[hack.id]
 
-      let parsedSampleMedia = [];
+      let parsedSampleMedia = []
       if (step4?.sampleMedia) {
         try {
           const raw =
-            typeof step4.sampleMedia === "string"
+            typeof step4.sampleMedia === 'string'
               ? JSON.parse(step4.sampleMedia)
-              : step4.sampleMedia;
+              : step4.sampleMedia
           parsedSampleMedia = Array.isArray(raw)
-            ? raw.map((media) => formatImagePath(media))
-            : [];
+            ? raw.map(media => formatImagePath(media))
+            : []
         } catch {
-          parsedSampleMedia = [];
+          parsedSampleMedia = []
         }
       }
 
@@ -95,143 +95,143 @@ export const getAllBusinessHackData = async (req, res) => {
           ? {
               ...step4,
               campaignImage: formatImagePath(step4.campaignImage),
-              sampleMedia: parsedSampleMedia,
+              sampleMedia: parsedSampleMedia
             }
-          : null,
-      };
-    });
+          : null
+      }
+    })
 
     return res.status(200).json({
       success: true,
-      message: "Data fetched successfully",
+      message: 'Data fetched successfully',
       total: fullData.length,
-      data: fullData,
-    });
+      data: fullData
+    })
   } catch (error) {
-    console.error("ERROR:", error);
+    console.error('ERROR:', error)
     return res.status(500).json({
       success: false,
-      message: error.message,
-    });
+      message: error.message
+    })
   }
-};
+}
 
 // ✅ NEW API CONTROLLER that fetch logged in business registered campaigns only
 // ✅ GET ONLY BUSINESS USER CREATED CAMPAIGNS
 export const getBusinessUserCampaigns = async (req, res) => {
   try {
-    console.log("GET BUSINESS USER CAMPAIGNS API CALLED");
+    console.log('GET BUSINESS USER CAMPAIGNS API CALLED')
 
     // ✅ Correct token field
-    const userId = req.user?.userId;
-    const role = req.user?.userType;
+    const userId = req.user?.userId
+    const role = req.user?.userType
 
-    console.log("Logged In User:", req.user);
+    console.log('Logged In User:', req.user)
 
     // ✅ Only business users allowed
-    if (role !== "business") {
+    if (role !== 'business') {
       return res.status(403).json({
         success: false,
-        message: "Access denied. Only business users can access this API.",
-      });
+        message: 'Access denied. Only business users can access this API.'
+      })
     }
 
     // ✅ Validate token user ID
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "User ID missing in token.",
-      });
+        message: 'User ID missing in token.'
+      })
     }
 
     // ✅ Fetch campaigns created by logged-in business user
     const hacks = await BusinessHack.findAll({
       where: {
-        user_id: userId,
+        user_id: userId
       },
-      order: [["createdAt", "DESC"]],
-      raw: true,
-    });
+      order: [['createdAt', 'DESC']],
+      raw: true
+    })
 
-    console.log("Campaigns Found:", hacks.length);
+    console.log('Campaigns Found:', hacks.length)
 
     // ✅ No campaigns
     if (!hacks.length) {
       return res.status(200).json({
         success: true,
-        message: "No campaigns found",
+        message: 'No campaigns found',
         total: 0,
-        data: [],
-      });
+        data: []
+      })
     }
 
-    const hackIds = hacks.map((item) => item.id);
+    const hackIds = hacks.map(item => item.id)
 
     // ✅ Fetch related tables
     const [details, step3Data, step4Data] = await Promise.all([
       BusinessHackDetail.findAll({
         where: {
           businessHackId: {
-            [Op.in]: hackIds,
-          },
+            [Op.in]: hackIds
+          }
         },
-        raw: true,
+        raw: true
       }),
 
       BusinessHackStep3.findAll({
         where: {
           businessHackId: {
-            [Op.in]: hackIds,
-          },
+            [Op.in]: hackIds
+          }
         },
-        raw: true,
+        raw: true
       }),
 
       BusinessHackStep4.findAll({
         where: {
           businessHackId: {
-            [Op.in]: hackIds,
-          },
+            [Op.in]: hackIds
+          }
         },
-        raw: true,
-      }),
-    ]);
+        raw: true
+      })
+    ])
 
     // ✅ Maps
-    const detailsMap = {};
-    const step3Map = {};
-    const step4Map = {};
+    const detailsMap = {}
+    const step3Map = {}
+    const step4Map = {}
 
-    details.forEach((item) => {
-      detailsMap[item.businessHackId] = item;
-    });
+    details.forEach(item => {
+      detailsMap[item.businessHackId] = item
+    })
 
-    step3Data.forEach((item) => {
-      step3Map[item.businessHackId] = item;
-    });
+    step3Data.forEach(item => {
+      step3Map[item.businessHackId] = item
+    })
 
-    step4Data.forEach((item) => {
-      step4Map[item.businessHackId] = item;
-    });
+    step4Data.forEach(item => {
+      step4Map[item.businessHackId] = item
+    })
 
     // ✅ Final merged response
-    const fullData = hacks.map((hack) => {
-      const step4 = step4Map[hack.id];
+    const fullData = hacks.map(hack => {
+      const step4 = step4Map[hack.id]
 
-      let parsedSampleMedia = [];
+      let parsedSampleMedia = []
 
       if (step4?.sampleMedia) {
         try {
           const media =
-            typeof step4.sampleMedia === "string"
+            typeof step4.sampleMedia === 'string'
               ? JSON.parse(step4.sampleMedia)
-              : step4.sampleMedia;
+              : step4.sampleMedia
 
           parsedSampleMedia = Array.isArray(media)
-            ? media.map((item) => formatImagePath(item))
-            : [];
+            ? media.map(item => formatImagePath(item))
+            : []
         } catch (err) {
-          parsedSampleMedia = [];
+          parsedSampleMedia = []
         }
       }
 
@@ -246,76 +246,85 @@ export const getBusinessUserCampaigns = async (req, res) => {
           ? {
               ...step4,
               campaignImage: formatImagePath(step4.campaignImage),
-              sampleMedia: parsedSampleMedia,
+              sampleMedia: parsedSampleMedia
             }
-          : null,
-      };
-    });
+          : null
+      }
+    })
 
     return res.status(200).json({
       success: true,
-      message: "Business campaigns fetched successfully",
+      message: 'Business campaigns fetched successfully',
       total: fullData.length,
-      data: fullData,
-    });
+      data: fullData
+    })
   } catch (error) {
-    console.error("ERROR IN GET BUSINESS CAMPAIGNS:", error);
+    console.error('ERROR IN GET BUSINESS CAMPAIGNS:', error)
 
     return res.status(500).json({
       success: false,
-      message: error.message,
-    });
+      message: error.message
+    })
   }
-};
+}
 
 //get all campigns creted by one business user
+// Get all campaigns created by one business user
 export const getBusinessCampaigns = async (req, res) => {
   try {
-const userId = req.user?.userId; // INTEGER database id
-    const role = req.user?.userType;
+    const identityId = Number(req.user?.identityId)
+    const role = req.user?.userType
 
-    // Only business user allowed
-    if (role !== "business") {
+    // Only business users allowed
+    if (role !== 'business') {
       return res.status(403).json({
         success: false,
-        message: "Access denied",
-      });
+        message: 'Access denied'
+      })
+    }
+
+    // Validate identity
+    if (!Number.isInteger(identityId)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid identity'
+      })
     }
 
     const campaigns = await BusinessHack.findAll({
       where: {
-        user_id: userId,
+        identity_id: identityId
       },
 
       include: [
         {
           model: BusinessHackDetail,
-          as: "business_hack_details",
+          as: 'business_hack_details'
         },
         {
           model: BusinessHackStep3,
-          as: "business_hack_step3",
+          as: 'business_hack_step3'
         },
         {
           model: BusinessHackStep4,
-          as: "business_hack_step4",
-        },
+          as: 'business_hack_step4'
+        }
       ],
 
-      order: [["createdAt", "DESC"]],
-    });
+      order: [['createdAt', 'DESC']]
+    })
 
     return res.status(200).json({
       success: true,
       total: campaigns.length,
-      data: campaigns,
-    });
+      data: campaigns
+    })
   } catch (error) {
-    console.log(error);
+    console.error('getBusinessCampaigns error:', error)
 
     return res.status(500).json({
       success: false,
-      message: error.message,
-    });
+      message: error.message
+    })
   }
-};
+}
