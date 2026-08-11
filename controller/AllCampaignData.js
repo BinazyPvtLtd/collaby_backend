@@ -268,11 +268,10 @@ export const getBusinessUserCampaigns = async (req, res) => {
   }
 }
 
-//get all campigns creted by one business user
 // Get all campaigns created by one business user
 export const getBusinessCampaigns = async (req, res) => {
   try {
-    const identityId = Number(req.user?.identityId)
+    const userId = req.user?.userId
     const role = req.user?.userType
 
     // Only business users allowed
@@ -283,17 +282,17 @@ export const getBusinessCampaigns = async (req, res) => {
       })
     }
 
-    // Validate identity
-    if (!Number.isInteger(identityId)) {
+    // Validate user
+    if (!userId) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid identity'
+        message: 'Unauthorized'
       })
     }
 
     const campaigns = await BusinessHack.findAll({
       where: {
-        identity_id: identityId
+        user_id: userId
       },
 
       include: [
