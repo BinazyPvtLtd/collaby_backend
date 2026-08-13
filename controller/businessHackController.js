@@ -27,18 +27,18 @@ export const createBusinessHack = async (req, res) => {
     });
 
     // Notify influencers (all active) about the new campaign.
-    await notificationService.broadcast({
-      userType: "influencer",
-      title: "New Campaign",
-      body: `A new campaign "${campaignName}" is now live!`,
-      type: NotificationTypes.NEW_CAMPAIGN,
-      clickAction: ClickActions.CAMPAIGN_DETAILS,
-      referenceId: businessHack.id,
-      createdBy: req.user.userId || null,
-      data: {
-        campaignId: String(businessHack.id)
-      }
-    });
+    // await notificationService.broadcast({
+    //   userType: "influencer",
+    //   title: "New Campaign",
+    //   body: `A new campaign "${campaignName}" is now live!`,
+    //   type: NotificationTypes.NEW_CAMPAIGN,
+    //   clickAction: ClickActions.CAMPAIGN_DETAILS,
+    //   referenceId: businessHack.id,
+    //   createdBy: req.user.userId || null,
+    //   data: {
+    //     campaignId: String(businessHack.id)
+    //   }
+    // });
 
     res.status(201).json({
       success: true,

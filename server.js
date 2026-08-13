@@ -132,22 +132,22 @@ const startServer = async () => {
     await sequelize.authenticate()
     console.log('Database connected successfully')
 
-    if (process.env.DB_FORCE_SYNC === 'true') {
+    if (process.env.DB_FORCE_SYNC === 'false') {
       console.log('⚠️ DB_FORCE_SYNC=true')
       console.log('⚠️ Dropping and recreating all database tables...')
 
-      await sequelize.sync({ force: true })
+      await sequelize.sync({ force: false })
 
       console.log('✅ Tables recreated successfully')
     } else {
       console.log('🔄 Synchronizing database...')
 
-      await sequelize.sync({ alter: true })
+      await sequelize.sync({ alter: false })
 
       console.log('✅ Tables synchronized successfully')
     }
 
-    if (process.env.RUN_SEEDER === 'true') {
+    if (process.env.RUN_SEEDER === 'false') {
       console.log('🌱 Running seeders...')
       await runAllSeeders()
       console.log('✅ Seeders completed')

@@ -104,15 +104,36 @@ export const applyToCampaign = async (req, res) => {
     })
 
     console.log('✅ Application created:', application.id)
+    console.log('========== INFLUENCER DEBUG ==========')
+    console.log('req.user:', user)
+    console.log('user.userId:', user.userId)
+    console.log('influencerId:', influencerId)
+    console.log('======================================')
+    // ============================================================
+    // 8. NOTIFICATION INFO
+    // ============================================================
 
-    // ============================================================
-    // 8. SEND NOTIFICATION TO BUSINESS
-    // ============================================================
+    let notificationInfo = {
+      sent: false,
+      notificationId: null,
+      type: NotificationTypes.APPLICATION_RECEIVED,
+      title: 'New Application',
+      body: 'An influencer has applied to your campaign.',
+      referenceId: application.id,
+      recipient: null,
+      message: 'Notification was not sent'
+    }
+
     try {
       // campaign.user_id = business/user who owns the campaign
       const businessUserId = Number(campaign.user_id)
 
       if (Number.isInteger(businessUserId) && businessUserId > 0) {
+        notificationInfo.recipient = {
+          userId: businessUserId,
+          userType: 'business'
+        }
+
         const notification = await notificationService.sendNotification({
           users: [
             {
@@ -146,26 +167,87 @@ export const applyToCampaign = async (req, res) => {
         )
 
         console.log('🔔 Notification result:', notification)
+
+        // ========================================================
+        // STORE NOTIFICATION RESULT FOR FRONTEND
+        // ========================================================
+
+        notificationInfo = {
+          sent: true,
+
+          notificationId:
+            notification?.notification?.id || notification?.id || null,
+
+          type: NotificationTypes.APPLICATION_RECEIVED,
+
+          title: 'New Application',
+
+          body: 'An influencer has applied to your campaign.',
+
+          clickAction: ClickActions.APPLICATION_DETAILS,
+
+          referenceId: application.id,
+
+          recipient: {
+            userId: businessUserId,
+            userType: 'business'
+          },
+
+          data: {
+            applicationId: String(application.id),
+            campaignId: String(campaign.id),
+            influencerId: String(influencerId)
+          },
+
+          message: 'Notification sent successfully'
+        }
       } else {
         console.error('❌ Invalid business user ID:', campaign.user_id)
+
+        notificationInfo.message =
+          'Application created, but business user ID is invalid'
       }
     } catch (notificationError) {
+      // ============================================================
       // IMPORTANT:
-      // Application is already successfully created.
-      // Do NOT fail the application API just because FCM failed.
+      // APPLICATION IS ALREADY CREATED.
+      // DO NOT FAIL THE API.
+      // ============================================================
+
       console.error(
         '⚠️ Failed to send application notification:',
         notificationError
       )
+
+      notificationInfo = {
+        ...notificationInfo,
+
+        sent: false,
+
+        message:
+          'Application created successfully, but notification could not be sent',
+
+        error:
+          process.env.NODE_ENV === 'development'
+            ? notificationError.message
+            : undefined
+      }
     }
 
     // ============================================================
     // 9. RESPONSE
     // ============================================================
+
     return res.status(201).json({
       success: true,
+
       message: 'Application submitted successfully',
-      data: application
+
+      data: {
+        application,
+
+        notification: notificationInfo
+      }
     })
   } catch (error) {
     console.error('❌ applyToCampaign ERROR:', error)
@@ -295,7 +377,9 @@ export const acceptApplication = async (req, res) => {
     // 2. AUTH CHECK
     // ============================================================
     if (!user) {
-      await transaction.rollback()
+      if (transaction && !transaction.finished) {
+        await transaction.rollback()
+      }
 
       return res.status(401).json({
         success: false,
@@ -307,7 +391,9 @@ export const acceptApplication = async (req, res) => {
     // 3. ROLE CHECK
     // ============================================================
     if (user.userType !== 'business') {
-      await transaction.rollback()
+      if (transaction && !transaction.finished) {
+        await transaction.rollback()
+      }
 
       return res.status(403).json({
         success: false,
@@ -317,22 +403,15 @@ export const acceptApplication = async (req, res) => {
 
     const businessId = Number(user.userId)
 
-    if (!Number.isInteger(businessId) || businessId <= 0) {
-      await transaction.rollback()
-
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid business ID'
-      })
-    }
-
     // ============================================================
     // 4. VALIDATE APPLICATION ID
     // ============================================================
     const applicationId = Number(id)
 
-    if (!Number.isInteger(applicationId) || applicationId <= 0) {
-      await transaction.rollback()
+    if (!id || !Number.isInteger(applicationId) || applicationId <= 0) {
+      if (transaction && !transaction.finished) {
+        await transaction.rollback()
+      }
 
       return res.status(400).json({
         success: false,
@@ -348,7 +427,9 @@ export const acceptApplication = async (req, res) => {
     })
 
     if (!application) {
-      await transaction.rollback()
+      if (transaction && !transaction.finished) {
+        await transaction.rollback()
+      }
 
       return res.status(404).json({
         success: false,
@@ -360,7 +441,9 @@ export const acceptApplication = async (req, res) => {
     // 6. PREVENT RE-ACCEPT
     // ============================================================
     if (application.status !== 'pending') {
-      await transaction.rollback()
+      if (transaction && !transaction.finished) {
+        await transaction.rollback()
+      }
 
       return res.status(400).json({
         success: false,
@@ -378,7 +461,9 @@ export const acceptApplication = async (req, res) => {
     console.log('CAMPAIGN FOUND:', campaign)
 
     if (!campaign) {
-      await transaction.rollback()
+      if (transaction && !transaction.finished) {
+        await transaction.rollback()
+      }
 
       return res.status(404).json({
         success: false,
@@ -387,19 +472,7 @@ export const acceptApplication = async (req, res) => {
     }
 
     // ============================================================
-    // 8. OPTIONAL: VERIFY BUSINESS OWNS CAMPAIGN
-    // ============================================================
-    if (Number(campaign.user_id) !== businessId) {
-      await transaction.rollback()
-
-      return res.status(403).json({
-        success: false,
-        message: 'You are not authorized to accept this application'
-      })
-    }
-
-    // ============================================================
-    // 9. PREVENT DUPLICATE DEAL
+    // 8. PREVENT DUPLICATE DEAL
     // ============================================================
     const existingDeal = await Deal.findOne({
       where: {
@@ -409,7 +482,9 @@ export const acceptApplication = async (req, res) => {
     })
 
     if (existingDeal) {
-      await transaction.rollback()
+      if (transaction && !transaction.finished) {
+        await transaction.rollback()
+      }
 
       return res.status(400).json({
         success: false,
@@ -420,7 +495,7 @@ export const acceptApplication = async (req, res) => {
     console.log('APPLICATION:', application)
 
     // ============================================================
-    // 10. UPDATE APPLICATION
+    // 9. UPDATE APPLICATION
     // ============================================================
     application.status = 'accepted'
 
@@ -429,7 +504,7 @@ export const acceptApplication = async (req, res) => {
     })
 
     // ============================================================
-    // 11. CREATE DEAL
+    // 10. CREATE DEAL
     // ============================================================
     const deal = await Deal.create(
       {
@@ -448,58 +523,111 @@ export const acceptApplication = async (req, res) => {
     )
 
     // ============================================================
-    // 12. COMMIT DATABASE TRANSACTION
+    // 11. COMMIT TRANSACTION
     // ============================================================
     await transaction.commit()
-    transaction = null
-
-    console.log('✅ Application accepted and deal created:', deal.id)
 
     // ============================================================
-    // 13. SEND NOTIFICATION TO INFLUENCER
+    // 12. NOTIFICATION OBJECT
+    // ============================================================
+    let notificationInfo = {
+      sent: false,
+
+      title: 'Application Accepted',
+
+      body: 'Congratulations! Your application has been accepted.',
+
+      type: NotificationTypes.APPLICATION_ACCEPTED,
+
+      clickAction: ClickActions.DEAL_DETAILS,
+
+      referenceId: deal.id,
+
+      recipient: {
+        userId: application.influencer_id,
+        userType: 'influencer'
+      },
+
+      data: {
+        dealId: String(deal.id),
+        applicationId: String(application.id),
+        campaignId: String(application.campaign_id)
+      },
+
+      message: 'Notification was not sent'
+    }
+
+    // ============================================================
+    // 13. SEND NOTIFICATION AFTER COMMIT
     // ============================================================
     try {
-      const influencerId = Number(application.influencer_id)
-
-      if (Number.isInteger(influencerId) && influencerId > 0) {
-        const notification = await notificationService.sendNotification({
-          users: [
-            {
-              userId: influencerId,
-              userType: 'influencer'
-            }
-          ],
-
-          title: 'Application Accepted',
-
-          body: 'Congratulations! Your application has been accepted.',
-
-          type: NotificationTypes.APPLICATION_ACCEPTED,
-
-          clickAction: ClickActions.DEAL_DETAILS,
-
-          referenceId: deal.id,
-
-          createdBy: businessId,
-
-          data: {
-            dealId: String(deal.id),
-            applicationId: String(application.id),
-            campaignId: String(application.campaign_id),
-            influencerId: String(application.influencer_id)
+      const notification = await notificationService.sendNotification({
+        users: [
+          {
+            userId: application.influencer_id,
+            userType: 'influencer'
           }
-        })
+        ],
 
-        console.log('🔔 Application accepted notification sent:', notification)
-      } else {
-        console.error('❌ Invalid influencer ID:', application.influencer_id)
+        // ✅ Backend controlled
+        title: 'Application Accepted',
+
+        // ✅ Backend controlled
+        body: 'Congratulations! Your application has been accepted.',
+
+        type: NotificationTypes.APPLICATION_ACCEPTED,
+
+        clickAction: ClickActions.DEAL_DETAILS,
+
+        referenceId: deal.id,
+
+        createdBy: businessId,
+
+        data: {
+          dealId: String(deal.id),
+          applicationId: String(application.id),
+          campaignId: String(application.campaign_id)
+        }
+      })
+
+      console.log('🔔 Acceptance notification sent:', notification)
+
+      // ==========================================================
+      // STORE NOTIFICATION RESULT
+      // ==========================================================
+      notificationInfo = {
+        ...notificationInfo,
+
+        sent: true,
+
+        notificationId:
+          notification?.notification?.id || notification?.id || null,
+
+        message: 'Notification sent successfully'
       }
     } catch (notificationError) {
-      // Notification failure must NOT undo the accepted application/deal.
+      // IMPORTANT:
+      // Deal/application are already committed.
+      // Notification failure should NOT fail this API.
+
       console.error(
-        '⚠️ Failed to send application accepted notification:',
+        '⚠️ Failed to send acceptance notification:',
         notificationError
       )
+
+      notificationInfo = {
+        ...notificationInfo,
+
+        sent: false,
+
+        message:
+          'Application accepted and deal created, but notification failed',
+
+        error:
+          process.env.NODE_ENV === 'development'
+            ? notificationError.message
+            : undefined
+      }
     }
 
     // ============================================================
@@ -507,21 +635,24 @@ export const acceptApplication = async (req, res) => {
     // ============================================================
     return res.status(200).json({
       success: true,
+
       message: 'Application accepted and deal created',
-      data: deal
+
+      data: {
+        deal,
+
+        notification: notificationInfo
+      }
     })
   } catch (error) {
-    console.error('❌ ACCEPT APPLICATION ERROR:', error)
+    console.error('ACCEPT APPLICATION ERROR:', error)
 
-    // ============================================================
-    // ROLLBACK ONLY IF TRANSACTION IS STILL ACTIVE
-    // ============================================================
     try {
       if (transaction && !transaction.finished) {
         await transaction.rollback()
       }
     } catch (rollbackError) {
-      console.error('❌ ROLLBACK ERROR:', rollbackError)
+      console.error('ROLLBACK ERROR:', rollbackError)
     }
 
     return res.status(500).json({
@@ -562,21 +693,12 @@ export const rejectApplication = async (req, res) => {
       })
     }
 
-    const businessId = Number(user.userId)
-
-    if (!Number.isInteger(businessId) || businessId <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid business ID'
-      })
-    }
-
     // ============================================================
     // 3. VALIDATE APPLICATION ID
     // ============================================================
     const applicationId = Number(id)
 
-    if (!Number.isInteger(applicationId) || applicationId <= 0) {
+    if (!id || !Number.isInteger(applicationId) || applicationId <= 0) {
       return res.status(400).json({
         success: false,
         message: 'Invalid application ID'
@@ -596,29 +718,7 @@ export const rejectApplication = async (req, res) => {
     }
 
     // ============================================================
-    // 5. FIND CAMPAIGN
-    // ============================================================
-    const campaign = await BusinessHack.findByPk(application.campaign_id)
-
-    if (!campaign) {
-      return res.status(404).json({
-        success: false,
-        message: 'Campaign not found'
-      })
-    }
-
-    // ============================================================
-    // 6. VERIFY BUSINESS OWNS CAMPAIGN
-    // ============================================================
-    if (Number(campaign.user_id) !== businessId) {
-      return res.status(403).json({
-        success: false,
-        message: 'You are not authorized to reject this application'
-      })
-    }
-
-    // ============================================================
-    // 7. PREVENT RE-ACTION
+    // 5. PREVENT RE-ACTION
     // ============================================================
     if (application.status !== 'pending') {
       return res.status(400).json({
@@ -628,7 +728,7 @@ export const rejectApplication = async (req, res) => {
     }
 
     // ============================================================
-    // 8. UPDATE APPLICATION STATUS
+    // 6. REJECT APPLICATION
     // ============================================================
     application.status = 'rejected'
 
@@ -637,61 +737,125 @@ export const rejectApplication = async (req, res) => {
     console.log('❌ Application rejected:', application.id)
 
     // ============================================================
-    // 9. SEND NOTIFICATION TO INFLUENCER
+    // 7. NOTIFICATION INFO
     // ============================================================
+
+    let notificationInfo = {
+      sent: false,
+
+      title: 'Application Rejected',
+
+      body: 'Unfortunately your application has been rejected.',
+
+      type: NotificationTypes.APPLICATION_REJECTED,
+
+      clickAction: ClickActions.APPLICATION_DETAILS,
+
+      referenceId: application.id,
+
+      recipient: {
+        userId: application.influencer_id,
+        userType: 'influencer'
+      },
+
+      data: {
+        applicationId: String(application.id),
+        campaignId: String(application.campaign_id)
+      },
+
+      message: 'Notification was not sent'
+    }
+
+    // ============================================================
+    // 8. SEND NOTIFICATION
+    // ============================================================
+
     try {
-      const influencerId = Number(application.influencer_id)
-
-      if (Number.isInteger(influencerId) && influencerId > 0) {
-        const notification = await notificationService.sendNotification({
-          users: [
-            {
-              userId: influencerId,
-              userType: 'influencer'
-            }
-          ],
-
-          title: 'Application Rejected',
-
-          body: 'Unfortunately, your application has been rejected.',
-
-          type: NotificationTypes.APPLICATION_REJECTED,
-
-          clickAction: ClickActions.APPLICATION_DETAILS,
-
-          referenceId: application.id,
-
-          createdBy: businessId,
-
-          data: {
-            applicationId: String(application.id),
-            campaignId: String(application.campaign_id),
-            influencerId: String(application.influencer_id)
+      const notification = await notificationService.sendNotification({
+        users: [
+          {
+            userId: application.influencer_id,
+            userType: 'influencer'
           }
-        })
+        ],
 
-        console.log('🔔 Application rejection notification sent:', notification)
-      } else {
-        console.error('❌ Invalid influencer ID:', application.influencer_id)
+        // ✅ Backend controlled
+        title: 'Application Rejected',
+
+        // ✅ Backend controlled
+        body: 'Unfortunately your application has been rejected.',
+
+        type: NotificationTypes.APPLICATION_REJECTED,
+
+        clickAction: ClickActions.APPLICATION_DETAILS,
+
+        referenceId: application.id,
+
+        createdBy: user.userId || null,
+
+        data: {
+          applicationId: String(application.id),
+          campaignId: String(application.campaign_id)
+        }
+      })
+
+      console.log('🔔 Rejection notification sent:', notification)
+
+      // ==========================================================
+      // 9. STORE NOTIFICATION RESULT
+      // ==========================================================
+
+      notificationInfo = {
+        ...notificationInfo,
+
+        sent: true,
+
+        notificationId:
+          notification?.notification?.id || notification?.id || null,
+
+        message: 'Notification sent successfully'
       }
     } catch (notificationError) {
+      // IMPORTANT:
       // Application is already rejected.
-      // Do not return 500 if FCM notification fails.
+      // Do NOT fail the API because FCM failed.
+
       console.error(
-        '⚠️ Failed to send application rejection notification:',
+        '⚠️ Failed to send rejection notification:',
         notificationError
       )
+
+      notificationInfo = {
+        ...notificationInfo,
+
+        sent: false,
+
+        message: 'Application rejected successfully, but notification failed',
+
+        error:
+          process.env.NODE_ENV === 'development'
+            ? notificationError.message
+            : undefined
+      }
     }
 
     // ============================================================
     // 10. RESPONSE
     // ============================================================
+
     return res.status(200).json({
       success: true,
-      message: 'Application rejected successfully'
+
+      message: 'Application rejected successfully',
+
+      data: {
+        application,
+
+        notification: notificationInfo
+      }
     })
   } catch (error) {
-    console.error('❌ REJECT APPLICATION ERROR:', error)
+    console.error('REJECT APPLICATION ERROR:', error)
 
     return res.status(500).json({
       success: false,
