@@ -29,10 +29,23 @@ export const registerDevice = async (req, res) => {
     console.log('📥 Request body:', req.body)
     console.log('👤 User:', req.user)
 
+    // ============================================================
+    // 1. RESOLVE CURRENT IDENTITY
+    // ============================================================
     const identity = await resolveCurrentIdentity(req)
 
     console.log('🔍 Resolved identity:', identity)
 
+    if (!identity || !identity.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Unable to resolve user identity'
+      })
+    }
+
+    // ============================================================
+    // 2. GET REQUEST DATA
+    // ============================================================
     const {
       deviceId,
       deviceName,
@@ -45,6 +58,9 @@ export const registerDevice = async (req, res) => {
     console.log('📱 Controller deviceId:', deviceId)
     console.log('🔥 Controller fcmToken:', fcmToken)
 
+    // ============================================================
+    // 3. VALIDATION
+    // ============================================================
     if (!deviceId) {
       return res.status(400).json({
         success: false,
@@ -59,7 +75,16 @@ export const registerDevice = async (req, res) => {
       })
     }
 
-    // Make sure we have a numeric database identity
+    if (!req.user || !req.user.userType) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication information is missing'
+      })
+    }
+
+    // ============================================================
+    // 4. MAKE SURE IDENTITY ID IS NUMERIC
+    // ============================================================
     const identityId = Number(identity.id)
 
     if (!Number.isInteger(identityId)) {
@@ -71,6 +96,18 @@ export const registerDevice = async (req, res) => {
       })
     }
 
+    // ============================================================
+    // 5. REGISTER / UPDATE DEVICE
+    //
+    // notificationService.registerDevice() MUST handle:
+    //
+    // existing fcmToken -> UPDATE
+    // new fcmToken      -> CREATE
+    //
+    // This prevents:
+    // duplicate key value violates unique constraint
+    // device_tokens_fcm_token_key
+    // ============================================================
     const response = await notificationService.registerDevice({
       identityId,
       userId: identityId,
@@ -83,9 +120,14 @@ export const registerDevice = async (req, res) => {
       fcmToken
     })
 
-    return res.json({
+    // ============================================================
+    // 6. RESPONSE
+    // ============================================================
+    return res.status(200).json({
       success: true,
-      message: 'Device registered successfully',
+      message: response?.isNew
+        ? 'Device registered successfully'
+        : 'Device updated successfully',
       data: response
     })
   } catch (error) {
@@ -93,7 +135,7 @@ export const registerDevice = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message || 'Failed to register device'
     })
   }
 }

@@ -964,7 +964,7 @@ export const getCampaignApplicants = async (req, res) => {
 
       include: [
         {
-          model: User,
+          model: InfluencerUser,
           as: 'influencer',
           attributes: ['id', 'name', 'email']
         }

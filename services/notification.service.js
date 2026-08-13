@@ -35,8 +35,10 @@ class NotificationService {
   // ==========================================================
   // Register Device
   // ==========================================================
-  async registerDevice (data) {
+
+  async registerDevice(data) {
     const {
+      identityId: providedIdentityId,
       userId,
       userType,
       deviceId,
@@ -51,6 +53,9 @@ class NotificationService {
     console.log('📱 deviceId:', deviceId)
     console.log('🔥 fcmToken:', fcmToken)
 
+    // ==========================================================
+    // 1. VALIDATION
+    // ==========================================================
     if (!deviceId) {
       throw new Error('deviceId is required')
     }
@@ -59,7 +64,17 @@ class NotificationService {
       throw new Error('fcmToken is required')
     }
 
-    // Resolve the universal identity
+    if (!userId) {
+      throw new Error('userId is required')
+    }
+
+    if (!userType) {
+      throw new Error('userType is required')
+    }
+
+    // ==========================================================
+    // 2. RESOLVE UNIVERSAL IDENTITY
+    // ==========================================================
     const identity = await identityService.resolve({
       userId,
       userType
@@ -73,29 +88,74 @@ class NotificationService {
       adminId: identity.adminId
     })
 
-    // IMPORTANT:
-    // UserIdentity.id must be INTEGER
-    const identityId = Number(identity.id)
+    const resolvedIdentityId = Number(identity.id)
 
-    if (!Number.isInteger(identityId)) {
+    if (!Number.isInteger(resolvedIdentityId)) {
       throw new Error(`Invalid UserIdentity ID: ${identity.id}`)
     }
 
-    const device = await DeviceToken.findOne({
+    // ==========================================================
+    // 3. FIND BY FCM TOKEN FIRST
+    //
+    // fcm_token is UNIQUE in database.
+    // Therefore we MUST check it before creating.
+    // ==========================================================
+    const existingToken = await DeviceToken.findOne({
       where: {
-        identityId,
+        fcmToken
+      }
+    })
+
+    // ==========================================================
+    // 4. EXISTING FCM TOKEN
+    //
+    // Same FCM token can be sent again by Flutter.
+    // UPDATE instead of INSERT.
+    // ==========================================================
+    if (existingToken) {
+      console.log(
+        `♻️ Existing FCM token found. Updating device ${existingToken.id}`
+      )
+
+      await existingToken.update({
+        identityId: resolvedIdentityId,
+        userId: Number(userId),
+        userType,
+        deviceId,
+        deviceName,
+        deviceType,
+        appVersion,
+        osVersion,
+        isActive: true,
+        lastUsedAt: new Date()
+      })
+
+      return {
+        ...existingToken.toJSON(),
+        isNew: false
+      }
+    }
+
+    // ==========================================================
+    // 5. NO EXISTING FCM TOKEN
+    //
+    // Check whether this identity + device already exists.
+    // ==========================================================
+    const existingDevice = await DeviceToken.findOne({
+      where: {
+        identityId: resolvedIdentityId,
         deviceId
       }
     })
 
-    if (device) {
-      await device.update({
-        userType,
+    if (existingDevice) {
+      console.log(
+        `♻️ Existing device found. Updating device ${existingDevice.id}`
+      )
 
-        // Keep this ONLY if DeviceToken.user_id
-        // is an INTEGER column.
+      await existingDevice.update({
         userId: Number(userId),
-
+        userType,
         deviceName,
         deviceType,
         appVersion,
@@ -105,17 +165,19 @@ class NotificationService {
         lastUsedAt: new Date()
       })
 
-      return device
+      return {
+        ...existingDevice.toJSON(),
+        isNew: false
+      }
     }
 
+    // ==========================================================
+    // 6. CREATE NEW DEVICE
+    // ==========================================================
     const newDevice = await DeviceToken.create({
-      identityId,
-      userType,
-
-      // IMPORTANT:
-      // Do NOT use identity.influencerId here.
+      identityId: resolvedIdentityId,
       userId: Number(userId),
-
+      userType,
       deviceId,
       deviceName,
       deviceType,
@@ -126,8 +188,15 @@ class NotificationService {
       lastUsedAt: new Date()
     })
 
-    return newDevice
+    console.log(`✅ New device registered: ${newDevice.id}`)
+
+    return {
+      ...newDevice.toJSON(),
+      isNew: true
+    }
   }
+
+
   // ==========================================================
   // Logout Device
   // ==========================================================
