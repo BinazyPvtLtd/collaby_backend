@@ -5,6 +5,8 @@ dotenv.config()
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import path from 'path'
+import http from 'http'
+import { Server } from 'socket.io'
 import sequelize from './config/database.js'
 import cookieParser from 'cookie-parser'
 import otpRoutes from './routes/OtpRoutes.js'
@@ -22,30 +24,56 @@ import businessHackStep4Routes from './routes/businessHackStep4Routes.js'
 import influencerUserRoutes from './routes/InfluencerUserRoutes.js'
 import influencerCategoryRoutes from './routes/InfluencerCategoryRoutes.js'
 import profileRoutes from './routes/ProfileRoutes.js'
-import BusinessRoutes from './routes/businessRoutes.js'
 import cityRoutesTwo from './routes/CityRoutesTwo.js'
 import influencerListRoutes from './routes/influencerListRoutes.js'
 import inhacksRoutes from './routes/inhacksRoutes.js'
-import businessHacksRoutes from './routes/businessHackRoutes.js'
 import referralRoutes from './routes/referralRoutes.js'
 import bannerRoutes from './routes/bannerRoutes.js'
 import influencerDashboardRoutes from './routes/influencerDashboardRoutes.js'
-import campaignDataRoutes from './routes/campaignRoutes.js'
 import productRoutes from './routes/productRoutes.js'
 import allCampaignDataRoutes from './routes/AllCampaignDataRoute.js'
 import applicationRoutes from './routes/applicationRoutes.js'
 import dealRoutes from './routes/dealRoutes.js'
-import { seedCampaignTypes } from './seeders/seedCampaignTypes.js'
 import { runAllSeeders } from './seeders/runAllSeeders.js'
 import notificationRoutes from './routes/notification.routes.js'
+import chatRoutes from './routes/chat.routes.js'
+import ChatSocketService from './socket/chat.socket.js'
+
+import { chatSocketAuth } from './middleware/chatSocketAuth.js'
+
 import './models/Associations.js'
 
 const app = express()
 
 app.use(cookieParser())
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+// ============================================================
+// HTTP SERVER
+// ============================================================
+
+const server = http.createServer(app)
+
+// ============================================================
+// SOCKET.IO
+// ============================================================
+
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE']
+  }
+})
+
+// Socket authentication
+io.use(chatSocketAuth)
+
+// Initialize chat sockets
+ChatSocketService.initialize(io)
+
+// Make io available inside controllers
+app.set('io', io)
 
 app.use(
   helmet({
@@ -71,9 +99,6 @@ app.use(
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
   })
 )
-
-app.use(express.json({ limit: '10mb' }))
-app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 app.use(
   '/uploads',
@@ -102,20 +127,18 @@ app.use('/api/campaigns-step4', businessHackStep4Routes)
 app.use('/api/influencers-user', influencerUserRoutes)
 app.use('/api/categories', influencerCategoryRoutes)
 app.use('/api/profiles', profileRoutes)
-app.use('/api/business-profile', BusinessRoutes)
 app.use('/api/city', cityRoutesTwo)
 app.use('/api', influencerListRoutes)
 app.use('/api/inhacks', inhacksRoutes)
-app.use('/api/business-hacks-video', businessHacksRoutes)
 app.use('/api/referrals', referralRoutes)
 app.use('/api/banners', bannerRoutes)
 app.use('/api/influencer-dashboard', influencerDashboardRoutes)
-app.use('/api/data', campaignDataRoutes)
 app.use('/api/products', productRoutes)
 app.use('/api/all-detail', allCampaignDataRoutes)
 app.use('/api/applications', applicationRoutes)
 app.use('/api/deals', dealRoutes)
 app.use('/api/notifications', notificationRoutes)
+app.use('/api/chat', chatRoutes)
 
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack)
@@ -133,7 +156,7 @@ const startServer = async () => {
     console.log('Database connected successfully')
 
     if (process.env.DB_FORCE_SYNC === 'false') {
-      console.log('⚠️ DB_FORCE_SYNC=true')
+      console.log('⚠️ DB_FORCE_SYNC=false')
       console.log('⚠️ Dropping and recreating all database tables...')
 
       await sequelize.sync({ force: false })
@@ -147,7 +170,7 @@ const startServer = async () => {
       console.log('✅ Tables synchronized successfully')
     }
 
-    if (process.env.RUN_SEEDER === 'false') {
+    if (process.env.RUN_SEEDER === 'true') {
       console.log('🌱 Running seeders...')
       await runAllSeeders()
       console.log('✅ Seeders completed')
@@ -155,7 +178,7 @@ const startServer = async () => {
 
     const PORT = process.env.PORT || 5000
 
-    app.listen(PORT, '0.0.0.0', () => {
+    server.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server is running on port ${PORT}`)
     })
   } catch (error) {

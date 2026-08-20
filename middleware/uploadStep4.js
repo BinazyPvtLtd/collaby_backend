@@ -1,58 +1,146 @@
-import multer from "multer";
-import fs from "fs";
-import path from "path";
-import crypto from "crypto";
+import multer from 'multer'
+import path from 'path'
+import fs from 'fs'
 
-// Folders
-const campaignDir = "uploads/campaign-images";
-const sampleDir = "uploads/sample-media";
+// ==========================================================
+// ENSURE UPLOAD DIRECTORY EXISTS
+// ==========================================================
 
-// Ensure folders exist
-[campaignDir, sampleDir].forEach((dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-});
+const uploadDir = 'uploads/campaigns'
 
-// Storage
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, {
+    recursive: true
+  })
+}
+
+// ==========================================================
+// STORAGE
+// ==========================================================
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    if (file.fieldname === "campaignImage") {
-      cb(null, campaignDir);
-    } else if (file.fieldname === "sampleMedia") {
-      cb(null, sampleDir);
-    } else {
-      cb(new Error("Invalid field"), false);
-    }
+    cb(null, uploadDir)
   },
 
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const safeName = crypto.randomBytes(16).toString("hex") + ext;
-    cb(null, safeName);
-  },
-});
+    const extension = path.extname(file.originalname).toLowerCase()
 
-// File filter (SECURITY 🔒)
+    const uniqueName = `${file.fieldname}-${Date.now()}-${Math.round(
+      Math.random() * 1e9
+    )}${extension}`
+
+    cb(null, uniqueName)
+  }
+})
+
+// ==========================================================
+// FILE FILTER
+// ==========================================================
+
+const imageMimeTypes = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/heic',
+  'image/heif'
+]
+
+const imageExtensions = [
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.gif',
+  '.heic',
+  '.heif'
+]
+
+const videoMimeTypes = ['video/mp4', 'video/webm', 'video/quicktime']
+
+const videoExtensions = ['.mp4', '.webm', '.mov']
+
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = ["image/jpeg", "image/png", "video/mp4"];
+  const extension = path.extname(file.originalname).toLowerCase()
 
-  if (!allowedTypes.includes(file.mimetype)) {
-    return cb(new Error("Invalid file type"), false);
+  console.log('📁 Upload file:', {
+    fieldname: file.fieldname,
+    originalname: file.originalname,
+    mimetype: file.mimetype,
+    extension
+  })
+
+  const imageExtensions = [
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.webp',
+    '.gif',
+    '.heic',
+    '.heif'
+  ]
+
+  const videoExtensions = ['.mp4', '.webm', '.mov']
+
+  // ==========================================================
+  // campaignImage → ONLY IMAGE
+  // ==========================================================
+
+  if (file.fieldname === 'campaignImage') {
+    const isValidImage = imageExtensions.includes(extension)
+
+    if (isValidImage) {
+      return cb(null, true)
+    }
+
+    return cb(
+      new Error(
+        `campaignImage must be a valid image. Received extension: ${extension}`
+      )
+    )
   }
 
-  cb(null, true);
-};
+  // ==========================================================
+  // sampleMedia → IMAGE OR VIDEO
+  // ==========================================================
+
+  if (file.fieldname === 'sampleMedia') {
+    const isValidImage = imageExtensions.includes(extension)
+
+    const isValidVideo = videoExtensions.includes(extension)
+
+    if (isValidImage || isValidVideo) {
+      return cb(null, true)
+    }
+
+    return cb(
+      new Error(`Invalid sampleMedia type. Received extension: ${extension}`)
+    )
+  }
+
+  return cb(new Error(`Unexpected file field: ${file.fieldname}`))
+}
+// ==========================================================
+// MULTER CONFIG
+// ==========================================================
 
 const uploadStep4 = multer({
   storage,
   fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
-  },
-}).fields([
-  { name: "campaignImage", maxCount: 1 },
-  { name: "sampleMedia", maxCount: 10 },
-]);
 
-export default uploadStep4;
+  limits: {
+    fileSize: 5 * 1024 * 1024
+  }
+}).fields([
+  {
+    name: 'campaignImage',
+    maxCount: 1
+  },
+  {
+    name: 'sampleMedia',
+    maxCount: 10
+  }
+])
+
+export default uploadStep4

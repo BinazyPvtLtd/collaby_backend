@@ -13,106 +13,106 @@ const normalizeArray = (value) => {
 };
 
 // ✅ CREATE
-export const createBusinessHackStep3 = async (req, res) => {
-  try {
-    let {
-      businessHackId,
-      influencerCategory,
-      gender,
-      minAge,
-      maxAge,
-      campaignDescription,
-      dos,
-      donts,
-      isDosRequired,
-      isDontsRequired,
-    } = req.body;
+  export const createBusinessHackStep3 = async (req, res) => {
+    try {
+      let {
+        businessHackId,
+        influencerCategory,
+        gender,
+        minAge,
+        maxAge,
+        campaignDescription,
+        dos,
+        donts,
+        isDosRequired,
+        isDontsRequired,
+      } = req.body;
 
-    dos = normalizeArray(dos);
-    donts = normalizeArray(donts);
-    gender = normalizeGender(gender);
+      dos = normalizeArray(dos);
+      donts = normalizeArray(donts);
+      gender = normalizeGender(gender);
 
-    if (!gender || gender.length === 0) {
-      return res.status(400).json({
+      if (!gender || gender.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "At least one gender must be selected",
+        });
+      }
+
+      if (minAge >= maxAge) {
+        return res.status(400).json({
+          success: false,
+          message: "Minimum age must be less than maximum age",
+        });
+      }
+
+      if (isDosRequired && (!dos || dos.length === 0)) {
+        return res.status(400).json({
+          success: false,
+          message: "Dos list is required",
+        });
+      }
+
+      if (isDontsRequired && (!donts || donts.length === 0)) {
+        return res.status(400).json({
+          success: false,
+          message: "Donts list is required",
+        });
+      }
+
+      // 🔐 Step-1 ownership check
+      const campaign = await BusinessHack.findOne({
+        where: {
+          id: businessHackId,
+          user_id: req.user.userId,
+        },
+      });
+
+      if (!campaign) {
+        return res.status(403).json({
+          success: false,
+          message: "Unauthorized or Business Hack not found",
+        });
+      }
+
+      // 🚫 Prevent duplicate Step-3
+      const existing = await BusinessHackStep3.findOne({
+        where: { businessHackId },
+      });
+
+      if (existing) {
+        return res.status(400).json({
+          success: false,
+          message: "Step-3 already exists for this campaign",
+        });
+      }
+
+      const step3 = await BusinessHackStep3.create({
+        user_id: req.user.userId, // ✅ IMPORTANT
+        businessHackId,
+        influencerCategory,
+        gender,
+        minAge,
+        maxAge,
+        campaignDescription,
+        dos,
+        donts,
+        isDosRequired,
+        isDontsRequired,
+      });
+
+      res.status(201).json({
+        success: true,
+        message: "Business Hack Step-3 created successfully",
+        data: step3,
+      });
+    } catch (error) {
+      res.status(500).json({
         success: false,
-        message: "At least one gender must be selected",
+        message: error.message,
       });
     }
-
-    if (minAge >= maxAge) {
-      return res.status(400).json({
-        success: false,
-        message: "Minimum age must be less than maximum age",
-      });
-    }
-
-    if (isDosRequired && (!dos || dos.length === 0)) {
-      return res.status(400).json({
-        success: false,
-        message: "Dos list is required",
-      });
-    }
-
-    if (isDontsRequired && (!donts || donts.length === 0)) {
-      return res.status(400).json({
-        success: false,
-        message: "Donts list is required",
-      });
-    }
-
-    // 🔐 Step-1 ownership check
-    const campaign = await BusinessHack.findOne({
-      where: {
-        id: businessHackId,
-        user_id: req.user.userId,
-      },
-    });
-
-    if (!campaign) {
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized or Business Hack not found",
-      });
-    }
-
-    // 🚫 Prevent duplicate Step-3
-    const existing = await BusinessHackStep3.findOne({
-      where: { businessHackId },
-    });
-
-    if (existing) {
-      return res.status(400).json({
-        success: false,
-        message: "Step-3 already exists for this campaign",
-      });
-    }
-
-    const step3 = await BusinessHackStep3.create({
-      user_id: req.user.userId, // ✅ IMPORTANT
-      businessHackId,
-      influencerCategory,
-      gender,
-      minAge,
-      maxAge,
-      campaignDescription,
-      dos,
-      donts,
-      isDosRequired,
-      isDontsRequired,
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "Business Hack Step-3 created successfully",
-      data: step3,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+  };
 
 // ✅ GET ALL
 export const getAllBusinessHackStep3 = async (req, res) => {

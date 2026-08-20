@@ -13,6 +13,10 @@ import NotificationRecipient from './NotificationRecipient.js'
 import DeviceToken from './DeviceToken.js'
 import UserIdentity from './UserIdentity.js'
 
+import ChatRoom from './ChatRoom.js'
+import ChatMessage from './ChatMessage.js'
+import ChatMessageRead from './ChatMessageRead.js'
+import ChatReport from './ChatReport.js'
 // ================= BUSINESS HACK =================
 
 BusinessHack.hasOne(BusinessHackDetail, {
@@ -119,6 +123,37 @@ UserIdentity.hasMany(NotificationRecipient, {
   foreignKey: 'identityId',
   sourceKey: 'id',
   as: 'notificationRecipients'
+})
+
+// Chat module 
+ChatRoom.hasMany(ChatMessage, {
+  foreignKey: 'roomId',
+  as: 'messages'
+})
+
+ChatMessage.belongsTo(ChatRoom, {
+  foreignKey: 'roomId',
+  as: 'room'
+})
+
+ChatMessage.hasMany(ChatMessageRead, {
+  foreignKey: 'messageId',
+  as: 'reads'
+})
+
+ChatMessageRead.belongsTo(ChatMessage, {
+  foreignKey: 'messageId',
+  as: 'message'
+})
+
+ChatRoom.hasMany(ChatReport, {
+  foreignKey: 'roomId',
+  as: 'reports'
+})
+
+ChatReport.belongsTo(ChatRoom, {
+  foreignKey: 'roomId',
+  as: 'room'
 })
 
 export {

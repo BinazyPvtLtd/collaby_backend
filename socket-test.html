@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Socket.IO Chat Test</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 20px;
+      background: #fafafa;
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      max-width: 600px;
+    }
+    input, button, textarea {
+      font: inherit;
+      padding: 6px 10px;
+      margin: 4px 0;
+    }
+    button {
+      cursor: pointer;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+    }
+    button.secondary {
+      background: #6b7280;
+    }
+    button.danger {
+      background: #dc2626;
+    }
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 10px;
+      border-radius: 6px;
+      overflow: auto;
+      max-height: 300px;
+      font-size: 12px;
+    }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .msg {
+      border-bottom: 1px dashed #ccc;
+      padding: 6px 0;
+    }
+    .msg .meta {
+      font-size: 11px;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Socket.IO Chat Testing</h2>
+
+  <div class="panel">
+    <h3>1. Connect (JWT required)</h3>
+    <input id="token" type="text" placeholder="Paste JWT here" style="width: 500px" />
+    <div class="row">
+      <button onclick="connectSocket()">Connect</button>
+      <button class="danger" onclick="disconnectSocket()">Disconnect</button>
+    </div>
+    <div>Server URL: <input id="url" value="http://localhost:5000" /></div>
+    <div id="status">Status: not connected</div>
+  </div>
+
+  <div class="panel">
+    <h3>2. Join / Leave Room</h3>
+    <input id="roomId" type="number" value="1" />
+    <div class="row">
+      <button onclick="joinRoom()">Join</button>
+      <button class="secondary" onclick="leaveRoom()">Leave</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>3. Send Message</h3>
+    <textarea id="content" rows="2" cols="40" placeholder="Type a message..."></textarea>
+    <div class="row">
+      <button onclick="sendMessage()">Send Message</button>
+      <button class="secondary" onclick="emitTyping()">Typing...</button>
+      <button class="secondary" onclick="emitStopTyping()">Stop Typing</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>4. Mark Read</h3>
+    <input id="msgId" type="number" placeholder="messageId" />
+    <button onclick="markRead()">Mark as Read</button>
+  </div>
+
+  <div class="panel">
+    <h3>Messages</h3>
+    <div id="messages"></div>
+  </div>
+
+  <div class="panel">
+    <h3>Raw events log</h3>
+    <pre id="log"></pre>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    let socket = null
+
+    const status  = document.getElementById('status')
+    const logEl   = document.getElementById('log')
+    const msgEl   = document.getElementById('messages')
+
+    function log(label, data) {
+      const line = `[${new Date().toLocaleTimeString()}] ${label}: ` +
+                   (typeof data === 'string' ? data : JSON.stringify(data, null, 2))
+      logEl.textContent = line + '\n' + logEl.textContent
+      console.log(label, data)
+    }
+
+    function addMessage(data) {
+      const div = document.createElement('div')
+      div.className = 'msg'
+      const m = data?.message || data
+      div.innerHTML = `
+        <div><strong>${m.senderType || ''} #${m.senderId || ''}</strong>: ${m.content || '[file]'}</div>
+        <div class="meta">roomId=${m.roomId || ''} id=${m.id || ''} ${m.createdAt || ''}</div>
+      `
+      msgEl.appendChild(div)
+    }
+
+    function connectSocket() {
+      if (socket) socket.disconnect()
+
+      const token = document.getElementById('token').value.trim()
+      const url    = document.getElementById('url').value.trim()
+
+      if (!token) return alert('JWT is required (chatSocketAuth verifies it)')
+
+      socket = io(url, {
+        auth: { token },                 // <-- read by chatSocketAuth middleware
+        transports: ['websocket']
+      })
+
+      // ----- listeners -----
+      socket.on('connect', () => {
+        status.innerHTML = 'Status: connected as ' + socket.id
+        log('connect', socket.id)
+      })
+
+      socket.on('disconnect', reason => {
+        status.innerHTML = 'Status: disconnected'
+        log('disconnect', reason)
+      })
+
+      socket.on('connect_error', err => {
+        status.innerHTML = 'Status: connect error'
+        log('connect_error', err.message || err)
+      })
+
+      socket.on('chat:authenticated', d => log('chat:authenticated', d))
+      socket.on('chat:joined',        d => log('chat:joined', d))
+      socket.on('chat:user-joined',   d => log('chat:user-joined', d))
+      socket.on('chat:user-left',     d => log('chat:user-left', d))
+      socket.on('chat:message',       d => { log('chat:message', d); addMessage(d) })
+      socket.on('chat:message-read',  d => log('chat:message-read', d))
+      socket.on('chat:typing',        d => log('chat:typing', d))
+      socket.on('chat:stop-typing',   d => log('chat:stop-typing', d))
+      socket.on('chat:error',         d => log('chat:error', d))
+    }
+
+    function disconnectSocket() {
+      if (socket) socket.disconnect()
+    }
+
+    function joinRoom() {
+      const roomId = Number(document.getElementById('roomId').value)
+      socket.emit('chat:join', { roomId })
+      log('emit chat:join', { roomId })
+    }
+
+    function leaveRoom() {
+      const roomId = Number(document.getElementById('roomId').value)
+      socket.emit('chat:leave', { roomId })
+      log('emit chat:leave', { roomId })
+    }
+
+    function sendMessage() {
+      const roomId  = Number(document.getElementById('roomId').value)
+      const content = document.getElementById('content').value
+      if (!content) return alert('Message is required')
+      socket.emit('chat:send-message', { roomId, content, messageType: 'text' })
+      log('emit chat:send-message', { roomId, content })
+      document.getElementById('content').value = ''
+    }
+
+    function emitTyping() {
+      const roomId = Number(document.getElementById('roomId').value)
+      socket.emit('chat:typing', { roomId })
+    }
+
+    function emitStopTyping() {
+      const roomId = Number(document.getElementById('roomId').value)
+      socket.emit('chat:stop-typing', { roomId })
+    }
+
+    function markRead() {
+      const roomId   = Number(document.getElementById('roomId').value)
+      const messageId = Number(document.getElementById('msgId').value)
+      socket.emit('chat:read-message', { roomId, messageId })
+      log('emit chat:read-message', { roomId, messageId })
+    }
+  </script>
+</body>
+</html>

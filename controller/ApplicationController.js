@@ -354,6 +354,8 @@ export const getApplicationsByCampaign = async (req, res) => {
 }
 import Deal from '../models/Deal.js'
 import sequelize from '../config/database.js'
+import ChatService from '../services/ChatService.js'
+import ChatMessage from '../models/ChatMessage.js'
 
 /**
  * @desc    Brand accepts an application and creates a deal
@@ -502,6 +504,44 @@ export const acceptApplication = async (req, res) => {
     await application.save({
       transaction
     })
+    // ============================================================
+    // 9. CREATE CHAT ROOM
+    // ============================================================
+
+    console.log('CHAT ROOM DATA:', {
+      campaignId: application.campaign_id,
+      brandId: application.brand_id,
+      creatorId: application.influencer_id
+    })
+
+    console.log(application, 'APPPLICATION:::::::')
+
+    const { room, created } = await ChatService.createRoom({
+      campaignId: application.campaign_id,
+      brandId: application.brand_id,
+      creatorId: application.influencer_id,
+      transaction
+    })
+
+    console.log('CHAT ROOM:', room)
+    console.log('CHAT ROOM CREATED:', created)
+
+    // ============================================================
+    // CREATE SYSTEM MESSAGE
+    // ============================================================
+
+    await ChatMessage.create(
+      {
+        roomId: room.id,
+        senderId: null,
+        senderType: 'system',
+        messageType: 'system',
+        content: 'Creator has been approved for this campaign.'
+      },
+      {
+        transaction
+      }
+    )
 
     // ============================================================
     // 10. CREATE DEAL
@@ -521,6 +561,8 @@ export const acceptApplication = async (req, res) => {
         transaction
       }
     )
+
+    console.log('APPLICATION RAW:', application.toJSON())
 
     // ============================================================
     // 11. COMMIT TRANSACTION
