@@ -23,8 +23,6 @@ class ChatService {
       roomKey
     })
 
-    const roomKey = `${campaignId}:${brandId}:${creatorId}`
-
     const [room, created] = await ChatRoom.findOrCreate({
       where: {
         roomKey
