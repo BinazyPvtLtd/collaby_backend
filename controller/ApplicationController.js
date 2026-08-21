@@ -1008,7 +1008,7 @@ export const getCampaignApplicants = async (req, res) => {
         {
           model: InfluencerUser,
           as: 'influencer',
-          attributes: ['id', 'name', 'email']
+          attributes: ['id', 'fullName', 'email']
         }
       ],
 
