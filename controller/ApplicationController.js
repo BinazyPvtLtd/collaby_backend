@@ -357,11 +357,42 @@ import sequelize from '../config/database.js'
 import ChatService from '../services/ChatService.js'
 import ChatMessage from '../models/ChatMessage.js'
 
-/**
- * @desc    Brand accepts an application and creates a deal
- * @route   POST /api/applications/:id/accept
- * @access  Brand (Protected)
- */
+    /**
+     * @desc    Brand accepts an application and creates a deal
+     * @route   POST /api/applications/:id/accept
+     * @access  Brand (Protected)
+     */
+
+export const getApplicationsByInfluencer = async (req, res) => {
+  try {
+    const { influencerId } = req.params
+    if (!influencerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'influencerId is required'
+      })
+    }
+    if (isNaN(influencerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'influencerId must be a number'
+      })
+    }
+    const applications = await Application.findAll({
+      where: { influencer_id: Number(influencerId) }
+    })
+    return res.json({
+      success: true,
+      data: applications
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
 
 export const acceptApplication = async (req, res) => {
   let transaction = null
