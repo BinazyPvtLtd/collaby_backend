@@ -543,6 +543,20 @@ export const acceptApplication = async (req, res) => {
       }
     )
 
+    // Default message to influencer
+    await ChatMessage.create(
+      {
+        roomId: room.id,
+        senderId: null,
+        senderType: 'system',
+        messageType: 'system',
+        content: 'Your application has been accepted.'
+      },
+      {
+        transaction
+      }
+    )
+
     // ============================================================
     // 10. CREATE DEAL
     // ============================================================
