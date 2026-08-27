@@ -20,7 +20,6 @@ router.get("/influencer/:influencerId", verifyToken, getApplicationsByInfluencer
 router.post("/:id/accept", verifyToken, acceptApplication);
 router.post("/:id/reject", verifyToken, rejectApplication);
 router.post("/:id/withdraw", verifyToken, withdrawApplication);
-
 router.get(
   "/campaign/:campaignId/applicants",
   verifyToken,

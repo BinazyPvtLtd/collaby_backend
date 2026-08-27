@@ -4,6 +4,7 @@ import ChatAuthorizationService from '../services/ChatAuthorizationService.js'
 
 import ChatMessage from '../models/ChatMessage.js'
 import ChatRoom from '../models/ChatRoom.js'
+import ChatMessageRead from '../models/ChatMessageRead.js'
 
 class ChatSocketService {
   initialize (io) {
@@ -355,7 +356,25 @@ class ChatSocketService {
           // Broadcast read receipt
           // ------------------------------------------------
 
-          io.to(`chat:${roomId}`).emit('chat:message-read', {
+const readRecord = await ChatMessageRead.findOne({
+  where: {
+    messageId,
+    userId: Number(socket.user.userId),
+    userType: userSenderType
+  }
+});
+const now = new Date();
+if (!readRecord) {
+  await ChatMessageRead.create({
+    messageId,
+    userId: Number(socket.user.userId),
+    userType: userSenderType,
+    readAt: now
+  });
+} else if (!readRecord.readAt) {
+  await readRecord.update({ readAt: now });
+}
+io.to(`chat:${roomId}`).emit('chat:message-read', {
             roomId: Number(roomId),
 
             messageId: Number(messageId),

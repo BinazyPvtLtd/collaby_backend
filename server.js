@@ -38,6 +38,7 @@ import { runAllSeeders } from './seeders/runAllSeeders.js'
 import notificationRoutes from './routes/notification.routes.js'
 import chatRoutes from './routes/chat.routes.js'
 import ChatSocketService from './socket/chat.socket.js'
+import instagramRoutes from './routes/instagram.routes.js'
 
 import { chatSocketAuth } from './middleware/chatSocketAuth.js'
 
@@ -139,7 +140,7 @@ app.use('/api/applications', applicationRoutes)
 app.use('/api/deals', dealRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/chat', chatRoutes)
-
+app.use('/api/instagram', instagramRoutes)
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack)
   res.status(500).json({

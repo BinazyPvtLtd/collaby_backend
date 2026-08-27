@@ -21,7 +21,7 @@
   },
   "homepage": "https://github.com/ekta-developer/influenex_backend#readme",
   "dependencies": {
-    "axios": "^1.13.5",
+    "axios": "^1.19.0",
     "bcryptjs": "^3.0.3",
     "body-parser": "^2.2.2",
     "chalk": "^5.6.2",
