@@ -142,9 +142,9 @@ export const instagramCallback = async (req, res) => {
     const { code, state, error, error_description } = req.query
 
     /*
-    |----------------------------------------
+    |--------------------------------------------------------------------------
     | User denied permission
-    |----------------------------------------
+    |--------------------------------------------------------------------------
     */
 
     if (error) {
@@ -155,9 +155,7 @@ export const instagramCallback = async (req, res) => {
       )
 
       return res.redirect(
-        `${
-          process.env.FRONTEND_URL
-        }/instagram/error?message=${encodeURIComponent(
+        `${process.env.FRONTEND_URL}/instagram/error?message=${encodeURIComponent(
           error_description || 'Instagram authorization failed'
         )}`
       )
@@ -165,14 +163,16 @@ export const instagramCallback = async (req, res) => {
 
     if (!code) {
       return res.redirect(
-        `${process.env.FRONTEND_URL}/instagram/error?message=Authorization code missing`
+        `${process.env.FRONTEND_URL}/instagram/error?message=${encodeURIComponent(
+          'Authorization code missing'
+        )}`
       )
     }
 
     /*
-    |----------------------------------------
+    |--------------------------------------------------------------------------
     | Verify state
-    |----------------------------------------
+    |--------------------------------------------------------------------------
     */
 
     const stateData = verifyState(state)
@@ -186,23 +186,37 @@ export const instagramCallback = async (req, res) => {
 
     /*
     |--------------------------------------------------------------------------
-    | STEP 1:
-    | Exchange authorization code
-    | for short-lived access token
+    | STEP 1
+    | Exchange authorization code for short-lived access token
     |--------------------------------------------------------------------------
     */
 
     const formData = new URLSearchParams()
 
-    formData.append('client_id', process.env.INSTAGRAM_APP_ID)
+    formData.append(
+      'client_id',
+      process.env.INSTAGRAM_APP_ID
+    )
 
-    formData.append('client_secret', process.env.INSTAGRAM_APP_SECRET)
+    formData.append(
+      'client_secret',
+      process.env.INSTAGRAM_APP_SECRET
+    )
 
-    formData.append('grant_type', 'authorization_code')
+    formData.append(
+      'grant_type',
+      'authorization_code'
+    )
 
-    formData.append('redirect_uri', process.env.INSTAGRAM_REDIRECT_URI)
+    formData.append(
+      'redirect_uri',
+      process.env.INSTAGRAM_REDIRECT_URI
+    )
 
-    formData.append('code', code)
+    formData.append(
+      'code',
+      code
+    )
 
     const tokenResponse = await axios.post(
       'https://api.instagram.com/oauth/access_token',
@@ -214,16 +228,22 @@ export const instagramCallback = async (req, res) => {
       }
     )
 
-    const { access_token: shortLivedToken, user_id: instagramUserId } =
-      tokenResponse.data
+    const {
+      access_token: shortLivedToken,
+      user_id: returnedInstagramUserId
+    } = tokenResponse.data
 
     console.log('✅ Instagram short-lived token received')
 
+    console.log(
+      '📸 Instagram OAuth user ID:',
+      returnedInstagramUserId
+    )
+
     /*
     |--------------------------------------------------------------------------
-    | STEP 2:
-    | Exchange short-lived token
-    | for long-lived token
+    | STEP 2
+    | Exchange short-lived token for long-lived token
     |--------------------------------------------------------------------------
     */
 
@@ -238,7 +258,10 @@ export const instagramCallback = async (req, res) => {
       }
     )
 
-    const { access_token: longLivedToken, expires_in } = longTokenResponse.data
+    const {
+      access_token: longLivedToken,
+      expires_in
+    } = longTokenResponse.data
 
     console.log('✅ Long-lived Instagram token received')
 
@@ -248,17 +271,19 @@ export const instagramCallback = async (req, res) => {
     |--------------------------------------------------------------------------
     */
 
-    const tokenExpiresAt = new Date(Date.now() + expires_in * 1000)
+    const tokenExpiresAt = new Date(
+      Date.now() + expires_in * 1000
+    )
 
     /*
     |--------------------------------------------------------------------------
-    | STEP 3:
+    | STEP 3
     | Get Instagram profile
     |--------------------------------------------------------------------------
     */
 
     const profileResponse = await axios.get(
-      `https://graph.instagram.com/v23.0/${instagramUserId}`,
+      'https://graph.instagram.com/me',
       {
         params: {
           fields: 'id,username,account_type,media_count',
@@ -273,34 +298,43 @@ export const instagramCallback = async (req, res) => {
 
     /*
     |--------------------------------------------------------------------------
-    | STEP 4:
-    | Check if this Instagram account
-    | is already connected
+    | IMPORTANT
+    | Use profile.id as the Instagram account ID
     |--------------------------------------------------------------------------
     */
 
-    const existingInstagramAccount = await InstagramAccount.findOne({
-      where: {
-        instagramUserId: String(instagramUserId)
-      }
-    })
+    const instagramUserId = profile.id
 
     /*
     |--------------------------------------------------------------------------
-    | Prevent one Instagram account
-    | from being used by another user
+    | STEP 4
+    | Check if Instagram account already exists
+    |--------------------------------------------------------------------------
+    */
+
+    const existingInstagramAccount =
+      await InstagramAccount.findOne({
+        where: {
+          instagramUserId: String(instagramUserId)
+        }
+      })
+
+    /*
+    |--------------------------------------------------------------------------
+    | Prevent same Instagram account from being connected
+    | to another user
     |--------------------------------------------------------------------------
     */
 
     if (
       existingInstagramAccount &&
-      (existingInstagramAccount.userId !== Number(userId) ||
-        existingInstagramAccount.userType !== userType)
+      (
+        existingInstagramAccount.userId !== Number(userId) ||
+        existingInstagramAccount.userType !== userType
+      )
     ) {
       return res.redirect(
-        `${
-          process.env.FRONTEND_URL
-        }/instagram/error?message=${encodeURIComponent(
+        `${process.env.FRONTEND_URL}/instagram/error?message=${encodeURIComponent(
           'This Instagram account is already connected to another user'
         )}`
       )
@@ -308,19 +342,26 @@ export const instagramCallback = async (req, res) => {
 
     /*
     |--------------------------------------------------------------------------
-    | STEP 5:
-    | Create or update connection
+    | STEP 5
+    | Check current user's Instagram connection
     |--------------------------------------------------------------------------
     */
 
-    const existingUserConnection = await InstagramAccount.findOne({
-      where: {
-        userId: Number(userId),
-        userType
-      }
-    })
+    const existingUserConnection =
+      await InstagramAccount.findOne({
+        where: {
+          userId: Number(userId),
+          userType
+        }
+      })
 
     let instagramAccount
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE
+    |--------------------------------------------------------------------------
+    */
 
     if (existingUserConnection) {
       await existingUserConnection.update({
@@ -342,50 +383,68 @@ export const instagramCallback = async (req, res) => {
       })
 
       instagramAccount = existingUserConnection
-    } else {
-      instagramAccount = await InstagramAccount.create({
-        userId: Number(userId),
-
-        userType,
-
-        instagramUserId: String(instagramUserId),
-
-        username: profile.username || null,
-
-        accountType: profile.account_type || null,
-
-        mediaCount: profile.media_count || 0,
-
-        accessToken: longLivedToken,
-
-        tokenExpiresAt,
-
-        isConnected: true,
-
-        lastSyncedAt: new Date()
-      })
     }
-
-    console.log('✅ Instagram account saved:', instagramAccount.id)
 
     /*
     |--------------------------------------------------------------------------
-    | Redirect user back to frontend
+    | CREATE
     |--------------------------------------------------------------------------
     */
 
-    return res.redirect(`${process.env.FRONTEND_URL}/instagram/success`)
+    else {
+      instagramAccount =
+        await InstagramAccount.create({
+          userId: Number(userId),
+
+          userType,
+
+          instagramUserId: String(instagramUserId),
+
+          username: profile.username || null,
+
+          accountType: profile.account_type || null,
+
+          mediaCount: profile.media_count || 0,
+
+          accessToken: longLivedToken,
+
+          tokenExpiresAt,
+
+          isConnected: true,
+
+          lastSyncedAt: new Date()
+        })
+    }
+
+    console.log(
+      '✅ Instagram account saved:',
+      instagramAccount.id
+    )
+
+    /*
+    |--------------------------------------------------------------------------
+    | Redirect
+    |--------------------------------------------------------------------------
+    */
+
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/instagram/success`
+    )
   } catch (error) {
     console.error(
       '❌ Instagram callback error:',
       error.response?.data || error.message
     )
 
+    const message =
+      error.response?.data?.error?.message ||
+      error.response?.data?.error_message ||
+      error.message ||
+      'Instagram connection failed'
+
     return res.redirect(
       `${process.env.FRONTEND_URL}/instagram/error?message=${encodeURIComponent(
-        error.response?.data?.error_message ||
-          error.message ||
-          'Instagram connection failed'
+        message
       )}`
     )
   }
