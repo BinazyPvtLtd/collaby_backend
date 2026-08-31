@@ -282,11 +282,13 @@ export const instagramCallback = async (req, res) => {
     |--------------------------------------------------------------------------
     */
 
+
     const profileResponse = await axios.get(
       'https://graph.instagram.com/me',
       {
         params: {
-          fields: 'id,username,account_type,media_count',
+          fields:
+            'id,username,name,account_type,profile_picture_url,followers_count,follows_count,media_count',
           access_token: longLivedToken
         }
       }
@@ -298,13 +300,22 @@ export const instagramCallback = async (req, res) => {
 
     /*
     |--------------------------------------------------------------------------
-    | IMPORTANT
-    | Use profile.id as the Instagram account ID
+    | Instagram account ID
     |--------------------------------------------------------------------------
     */
 
     const instagramUserId = profile.id
 
+    console.log('📸 Instagram profile details:', {
+      id: profile.id,
+      username: profile.username,
+      name: profile.name,
+      accountType: profile.account_type,
+      profilePictureUrl: profile.profile_picture_url,
+      followersCount: profile.followers_count,
+      followingCount: profile.follows_count,
+      mediaCount: profile.media_count
+    })
     /*
     |--------------------------------------------------------------------------
     | STEP 4
@@ -369,7 +380,54 @@ export const instagramCallback = async (req, res) => {
 
         username: profile.username || null,
 
+        name: profile.name || null,
+
         accountType: profile.account_type || null,
+
+        profilePictureUrl: profile.profile_picture_url || null,
+
+        followersCount: profile.followers_count || 0,
+
+        followingCount: profile.follows_count || 0,
+
+        mediaCount: profile.media_count || 0,
+
+        accessToken: longLivedToken,
+
+        tokenExpiresAt,
+
+        isConnected: true,
+
+        lastSyncedAt: new Date()
+      })
+      instagramAccount = existingUserConnection
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CREATE
+    |--------------------------------------------------------------------------
+    */
+
+    else {
+      instagramAccount = await InstagramAccount.create({
+        userId: Number(userId),
+
+        userType,
+
+        instagramUserId: String(instagramUserId),
+
+        username: profile.username || null,
+
+        name: profile.name || null,
+
+        accountType: profile.account_type || null,
+
+        profilePictureUrl: profile.profile_picture_url || null,
+
+        followersCount: profile.followers_count || 0,
+
+        followingCount: profile.follows_count || 0,
 
         mediaCount: profile.media_count || 0,
 
@@ -382,38 +440,7 @@ export const instagramCallback = async (req, res) => {
         lastSyncedAt: new Date()
       })
 
-      instagramAccount = existingUserConnection
-    }
 
-    /*
-    |--------------------------------------------------------------------------
-    | CREATE
-    |--------------------------------------------------------------------------
-    */
-
-    else {
-      instagramAccount =
-        await InstagramAccount.create({
-          userId: Number(userId),
-
-          userType,
-
-          instagramUserId: String(instagramUserId),
-
-          username: profile.username || null,
-
-          accountType: profile.account_type || null,
-
-          mediaCount: profile.media_count || 0,
-
-          accessToken: longLivedToken,
-
-          tokenExpiresAt,
-
-          isConnected: true,
-
-          lastSyncedAt: new Date()
-        })
     }
 
     console.log(
@@ -462,12 +489,9 @@ export const getInstagramProfile = async (req, res) => {
 
     const instagramAccount = await InstagramAccount.findOne({
       where: {
-        userId,
+        userId: Number(userId),
         userType,
         isConnected: true
-      },
-      attributes: {
-        exclude: ['accessToken']
       }
     })
 
@@ -475,21 +499,36 @@ export const getInstagramProfile = async (req, res) => {
       return res.status(404).json({
         success: false,
         connected: false,
-        message: 'No Instagram account connected'
+        message: 'Instagram account not connected'
       })
     }
 
     return res.status(200).json({
       success: true,
       connected: true,
-      data: instagramAccount
+      data: {
+        username: instagramAccount.username,
+        name: instagramAccount.name,
+        accountType: instagramAccount.accountType,
+        profilePictureUrl:
+          instagramAccount.profilePictureUrl,
+        followersCount:
+          instagramAccount.followersCount,
+        followingCount:
+          instagramAccount.followingCount,
+        mediaCount:
+          instagramAccount.mediaCount
+      }
     })
   } catch (error) {
-    console.error('❌ Get Instagram profile error:', error)
+    console.error(
+      '❌ Get Instagram profile error:',
+      error
+    )
 
     return res.status(500).json({
       success: false,
-      message: 'Failed to get Instagram profile'
+      message: 'Failed to fetch Instagram profile'
     })
   }
 }
@@ -541,6 +580,352 @@ export const disconnectInstagram = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to disconnect Instagram'
+    })
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Helper: Get connected Instagram account
+|--------------------------------------------------------------------------
+*/
+
+const getConnectedInstagramAccount = async (req) => {
+  const { userId, userType } = req.user
+
+  const instagramAccount = await InstagramAccount.findOne({
+    where: {
+      userId: Number(userId),
+      userType,
+      isConnected: true
+    }
+  })
+
+  return instagramAccount
+}
+
+/*
+|--------------------------------------------------------------------------
+| GET /api/instagram/media
+|
+| Get Instagram media/posts/reels
+|--------------------------------------------------------------------------
+*/
+
+export const getInstagramMedia = async (req, res) => {
+  try {
+    const instagramAccount =
+      await getConnectedInstagramAccount(req)
+
+    if (!instagramAccount) {
+      return res.status(404).json({
+        success: false,
+        connected: false,
+        message: 'Instagram account not connected'
+      })
+    }
+
+    const {
+      accessToken,
+      instagramUserId
+    } = instagramAccount
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pagination
+    |--------------------------------------------------------------------------
+    */
+
+    const limit = Number(req.query.limit) || 25
+    const after = req.query.after
+
+    /*
+    |--------------------------------------------------------------------------
+    | Instagram Media API
+    |--------------------------------------------------------------------------
+    */
+
+    const params = {
+      fields:
+        'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp',
+      access_token: accessToken,
+      limit
+    }
+
+    if (after) {
+      params.after = after
+    }
+
+    const response = await axios.get(
+      `https://graph.instagram.com/${instagramUserId}/media`,
+      {
+        params
+      }
+    )
+
+    const media = response.data?.data || []
+
+    /*
+    |--------------------------------------------------------------------------
+    | Format response for Flutter
+    |--------------------------------------------------------------------------
+    */
+
+    const formattedMedia = media.map((item) => ({
+      id: item.id,
+      caption: item.caption || '',
+      mediaType: item.media_type || null,
+      mediaUrl: item.media_url || null,
+      thumbnailUrl: item.thumbnail_url || null,
+      permalink: item.permalink || null,
+      timestamp: item.timestamp || null
+    }))
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pagination
+    |--------------------------------------------------------------------------
+    */
+
+    const nextCursor =
+      response.data?.paging?.cursors?.after || null
+
+    return res.status(200).json({
+      success: true,
+      data: formattedMedia,
+      paging: {
+        nextCursor
+      }
+    })
+  } catch (error) {
+    console.error(
+      '❌ Instagram media error:',
+      error.response?.data || error.message
+    )
+
+    const message =
+      error.response?.data?.error?.message ||
+      error.response?.data?.error_message ||
+      error.message ||
+      'Failed to fetch Instagram media'
+
+    return res.status(500).json({
+      success: false,
+      message
+    })
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| GET /api/instagram/insights
+|
+| Get Instagram account-level insights
+|--------------------------------------------------------------------------
+*/
+
+export const getInstagramInsights = async (req, res) => {
+  try {
+    const instagramAccount =
+      await getConnectedInstagramAccount(req)
+
+    if (!instagramAccount) {
+      return res.status(404).json({
+        success: false,
+        connected: false,
+        message: 'Instagram account not connected'
+      })
+    }
+
+    const {
+      accessToken,
+      instagramUserId
+    } = instagramAccount
+
+    /*
+    |--------------------------------------------------------------------------
+    | Account insights
+    |--------------------------------------------------------------------------
+    */
+
+    const response = await axios.get(
+      `https://graph.instagram.com/${instagramUserId}/insights`,
+      {
+        params: {
+          metric:
+            'reach,profile_views,accounts_engaged',
+          period: 'day',
+          access_token: accessToken
+        }
+      }
+    )
+
+    const insights = response.data?.data || []
+
+    /*
+    |--------------------------------------------------------------------------
+    | Convert Instagram response
+    |--------------------------------------------------------------------------
+    */
+
+    const getInsightValue = (name) => {
+      const insight = insights.find(
+        (item) => item.name === name
+      )
+
+      if (!insight) {
+        return 0
+      }
+
+      /*
+      Instagram can return values inside:
+      values[0].value
+      */
+
+      return (
+        insight.values?.[0]?.value ??
+        insight.value ??
+        0
+      )
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        reach: getInsightValue('reach'),
+
+        profileViews:
+          getInsightValue('profile_views'),
+
+        accountsEngaged:
+          getInsightValue('accounts_engaged')
+      }
+    })
+  } catch (error) {
+    console.error(
+      '❌ Instagram insights error:',
+      error.response?.data || error.message
+    )
+
+    const message =
+      error.response?.data?.error?.message ||
+      error.response?.data?.error_message ||
+      error.message ||
+      'Failed to fetch Instagram insights'
+
+    return res.status(500).json({
+      success: false,
+      message
+    })
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| GET /api/instagram/media/:mediaId/insights
+|
+| Get insights for a specific Instagram media
+|--------------------------------------------------------------------------
+*/
+
+export const getInstagramMediaInsights = async (req, res) => {
+  try {
+    const { mediaId } = req.params
+
+    if (!mediaId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Media ID is required'
+      })
+    }
+
+    const instagramAccount =
+      await getConnectedInstagramAccount(req)
+
+    if (!instagramAccount) {
+      return res.status(404).json({
+        success: false,
+        connected: false,
+        message: 'Instagram account not connected'
+      })
+    }
+
+    const {
+      accessToken
+    } = instagramAccount
+
+    /*
+    |--------------------------------------------------------------------------
+    | Media insights
+    |--------------------------------------------------------------------------
+    */
+
+    const response = await axios.get(
+      `https://graph.instagram.com/${mediaId}/insights`,
+      {
+        params: {
+          metric:
+            'views,reach,likes,comments,shares,saved',
+          access_token: accessToken
+        }
+      }
+    )
+
+    const insights = response.data?.data || []
+
+    /*
+    |--------------------------------------------------------------------------
+    | Get individual metric
+    |--------------------------------------------------------------------------
+    */
+
+    const getInsightValue = (name) => {
+      const insight = insights.find(
+        (item) => item.name === name
+      )
+
+      if (!insight) {
+        return 0
+      }
+
+      return (
+        insight.values?.[0]?.value ??
+        insight.value ??
+        0
+      )
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        views: getInsightValue('views'),
+
+        reach: getInsightValue('reach'),
+
+        likes: getInsightValue('likes'),
+
+        comments: getInsightValue('comments'),
+
+        shares: getInsightValue('shares'),
+
+        saved: getInsightValue('saved')
+      }
+    })
+  } catch (error) {
+    console.error(
+      '❌ Instagram media insights error:',
+      error.response?.data || error.message
+    )
+
+    const message =
+      error.response?.data?.error?.message ||
+      error.response?.data?.error_message ||
+      error.message ||
+      'Failed to fetch Instagram media insights'
+
+    return res.status(500).json({
+      success: false,
+      message
     })
   }
 }

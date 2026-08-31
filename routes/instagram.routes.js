@@ -4,7 +4,10 @@ import {
   connectInstagram,
   instagramCallback,
   getInstagramProfile,
-  disconnectInstagram
+  disconnectInstagram,
+  getInstagramMedia,
+  getInstagramInsights,
+  getInstagramMediaInsights
 } from '../controller/instagram.controller.js'
 
 import { verifyToken } from '../middleware/AuthMiddleware.js'
@@ -34,6 +37,30 @@ router.get('/callback', instagramCallback)
 */
 
 router.get('/profile', verifyToken, getInstagramProfile)
+
+/*
+|--------------------------------------------------------------------------
+| Instagram Media
+|--------------------------------------------------------------------------
+*/
+
+router.get('/media', verifyToken, getInstagramMedia)
+
+/*
+|--------------------------------------------------------------------------
+| Instagram Account Insights
+|--------------------------------------------------------------------------
+*/
+
+router.get('/insights', verifyToken, getInstagramInsights)
+
+/*
+|--------------------------------------------------------------------------
+| Instagram Media Insights
+|--------------------------------------------------------------------------
+*/
+
+router.get('/media/:mediaId/insights', verifyToken, getInstagramMediaInsights)
 
 /*
 |--------------------------------------------------------------------------

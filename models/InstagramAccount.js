@@ -6,11 +6,10 @@ const InstagramAccount = sequelize.define(
   {
     id: {
       type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true
+      autoIncrement: true,
+      primaryKey: true
     },
 
-    // Your Collaby user ID
     userId: {
       type: DataTypes.INTEGER,
       allowNull: false
@@ -18,13 +17,13 @@ const InstagramAccount = sequelize.define(
 
     userType: {
       type: DataTypes.ENUM(
+        'business',
         'influencer',
-        'business'
+        'admin'
       ),
       allowNull: false
     },
 
-    // Instagram's professional account ID
     instagramUserId: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -36,9 +35,29 @@ const InstagramAccount = sequelize.define(
       allowNull: true
     },
 
+    name: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
     accountType: {
       type: DataTypes.STRING,
       allowNull: true
+    },
+
+    profilePictureUrl: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+
+    followersCount: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+
+    followingCount: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
     },
 
     mediaCount: {
@@ -48,7 +67,7 @@ const InstagramAccount = sequelize.define(
 
     accessToken: {
       type: DataTypes.TEXT,
-      allowNull: true
+      allowNull: false
     },
 
     tokenExpiresAt: {
