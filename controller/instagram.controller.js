@@ -329,14 +329,12 @@ export const instagramCallback = async (req, res) => {
           instagramUserId: String(instagramUserId)
         }
       })
-
     /*
     |--------------------------------------------------------------------------
     | Prevent same Instagram account from being connected
     | to another user
     |--------------------------------------------------------------------------
     */
-
     if (
       existingInstagramAccount &&
       (
@@ -485,53 +483,92 @@ export const instagramCallback = async (req, res) => {
 
 export const getInstagramProfile = async (req, res) => {
   try {
-    const { userId, userType } = req.user
+    console.log("📸 GET /instagram/profile");
+    console.log("🔐 req.user:", req.user);
 
+    // 1. Check authentication data
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        connected: false,
+        message: "Unauthorized: user information not found"
+      });
+    }
+
+    const { userId, userType } = req.user;
+
+    console.log("👤 userId:", userId);
+    console.log("👤 userType:", userType);
+
+    if (!userId || !userType) {
+      return res.status(401).json({
+        success: false,
+        connected: false,
+        message: "Invalid authentication data"
+      });
+    }
+
+    // 2. Find connected Instagram account
     const instagramAccount = await InstagramAccount.findOne({
       where: {
         userId: Number(userId),
-        userType,
+        userType: userType,
         isConnected: true
       }
-    })
+    });
 
+    console.log("📸 Instagram account:", instagramAccount);
+
+    // 3. Instagram not connected
     if (!instagramAccount) {
       return res.status(404).json({
         success: false,
         connected: false,
-        message: 'Instagram account not connected'
-      })
+        message: "Instagram account not connected"
+      });
     }
 
+    // 4. Return profile
     return res.status(200).json({
       success: true,
       connected: true,
       data: {
-        username: instagramAccount.username,
-        name: instagramAccount.name,
-        accountType: instagramAccount.accountType,
-        profilePictureUrl:
-          instagramAccount.profilePictureUrl,
-        followersCount:
-          instagramAccount.followersCount,
-        followingCount:
-          instagramAccount.followingCount,
-        mediaCount:
-          instagramAccount.mediaCount
+        username: instagramAccount.username || null,
+        name: instagramAccount.name || null,
+        accountType: instagramAccount.accountType || null,
+        profilePictureUrl: instagramAccount.profilePictureUrl || null,
+        followersCount: instagramAccount.followersCount ?? 0,
+        followingCount: instagramAccount.followingCount ?? 0,
+        mediaCount: instagramAccount.mediaCount ?? 0
       }
-    })
+    });
+
   } catch (error) {
-    console.error(
-      '❌ Get Instagram profile error:',
-      error
-    )
+    console.error("❌ Get Instagram profile error:");
+    console.error("Message:", error.message);
+    console.error("Name:", error.name);
+    console.error("Stack:", error.stack);
+
+    // Sequelize specific error information
+    if (error?.parent) {
+      console.error("❌ DB Error:", error.parent);
+    }
+
+    if (error?.original) {
+      console.error("❌ Original DB Error:", error.original);
+    }
 
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch Instagram profile'
-    })
+      connected: false,
+      message: "Failed to fetch Instagram profile",
+      error:
+        process.env.NODE_ENV === "production"
+          ? undefined
+          : error.message
+    });
   }
-}
+};
 
 /*
 |--------------------------------------------------------------------------
