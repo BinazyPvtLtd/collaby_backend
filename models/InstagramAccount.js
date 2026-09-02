@@ -13,13 +13,13 @@ const InstagramAccount = sequelize.define(
     userId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      field: 'userId',
+      field: 'user_id',
     },
 
     userType: {
       type: DataTypes.ENUM('business', 'influencer', 'admin'),
       allowNull: false,
-      field: 'userType',
+      field: 'user_type',
     },
 
     instagramUserId: {
@@ -116,7 +116,7 @@ const InstagramAccount = sequelize.define(
       {
         name: 'instagram_accounts_user_id_user_type_unique',
         unique: true,
-        fields: ['userId', 'userType'],
+        fields: ['user_id', 'user_type'],
       },
     ],
   }
