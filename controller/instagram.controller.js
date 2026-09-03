@@ -1056,28 +1056,45 @@ export const getInstagramMedia = async (req, res) => {
 
 export const getInstagramInsights = async (req, res) => {
   try {
-    const instagramAccount =
-      await getConnectedInstagramAccount(req)
+    console.log("📊 GET /instagram/insights");
+
+    // 1. Get connected Instagram account
+    const instagramAccount = await getConnectedInstagramAccount(req);
 
     if (!instagramAccount) {
       return res.status(404).json({
         success: false,
         connected: false,
-        message: 'Instagram account not connected'
-      })
+        message: "Instagram account not connected",
+      });
     }
 
+    // 2. Get token and Instagram user ID FIRST
+    const { accessToken, instagramUserId } = instagramAccount;
+
+    console.log("📸 Instagram account:", {
+      id: instagramAccount.id,
+      instagramUserId,
+      hasAccessToken: !!accessToken,
+    });
+
+    // 3. Check access token
     if (!accessToken) {
       return res.status(401).json({
         success: false,
+        connected: true,
         message: "Instagram access token not found",
       });
     }
 
-    const {
-      accessToken,
-      instagramUserId
-    } = instagramAccount
+    // 4. Check Instagram user ID
+    if (!instagramUserId) {
+      return res.status(400).json({
+        success: false,
+        connected: true,
+        message: "Instagram user ID not found",
+      });
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -1089,15 +1106,15 @@ export const getInstagramInsights = async (req, res) => {
       `https://graph.instagram.com/${instagramUserId}/insights`,
       {
         params: {
-          metric:
-            'reach',
-          period: 'day',
-          access_token: accessToken
-        }
+          metric: "reach",
+          period: "day",
+          access_token: accessToken,
+        },
+        timeout: 15000,
       }
-    )
+    );
 
-    const insights = response.data?.data || []
+    const insights = response.data?.data || [];
 
     /*
     |--------------------------------------------------------------------------
@@ -1108,54 +1125,55 @@ export const getInstagramInsights = async (req, res) => {
     const getInsightValue = (name) => {
       const insight = insights.find(
         (item) => item.name === name
-      )
+      );
 
       if (!insight) {
-        return 0
+        return 0;
       }
-
-      /*
-      Instagram can return values inside:
-      values[0].value
-      */
 
       return (
         insight.values?.[0]?.value ??
         insight.value ??
         0
-      )
-    }
+      );
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | Response
+    |--------------------------------------------------------------------------
+    */
 
     return res.status(200).json({
       success: true,
+      connected: true,
       data: {
-        reach: getInsightValue('reach'),
+        reach: getInsightValue("reach"),
 
-        profileViews:
-          getInsightValue('profile_views'),
+        profileViews: getInsightValue("profile_views"),
 
-        accountsEngaged:
-          getInsightValue('accounts_engaged')
-      }
-    })
+        accountsEngaged: getInsightValue("accounts_engaged"),
+      },
+    });
+
   } catch (error) {
     console.error(
-      '❌ Instagram insights error:',
+      "❌ Instagram insights error:",
       error.response?.data || error.message
-    )
+    );
 
     const message =
       error.response?.data?.error?.message ||
       error.response?.data?.error_message ||
       error.message ||
-      'Failed to fetch Instagram insights'
+      "Failed to fetch Instagram insights";
 
     return res.status(500).json({
       success: false,
-      message
-    })
+      message,
+    });
   }
-}
+};
 
 /*
 |--------------------------------------------------------------------------
