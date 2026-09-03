@@ -158,7 +158,12 @@ export const connectInstagram = async (req, res) => {
 
 export const instagramCallback = async (req, res) => {
   try {
-    const { code, state, error, error_description } = req.query;
+    const {
+      code,
+      state,
+      error,
+      error_description,
+    } = req.query;
 
     console.log("📸 Instagram callback received");
 
@@ -180,7 +185,7 @@ export const instagramCallback = async (req, res) => {
     }
 
     // --------------------------------------------------
-    // 2. CODE CHECK
+    // 2. REQUIRED QUERY PARAMS
     // --------------------------------------------------
 
     if (!code) {
@@ -193,10 +198,6 @@ export const instagramCallback = async (req, res) => {
       );
     }
 
-    // --------------------------------------------------
-    // 3. STATE CHECK
-    // --------------------------------------------------
-
     if (!state) {
       console.error("❌ Instagram state missing");
 
@@ -207,10 +208,60 @@ export const instagramCallback = async (req, res) => {
       );
     }
 
-    const stateData = verifyState(state);
+    // --------------------------------------------------
+    // 3. CHECK ENVIRONMENT VARIABLES
+    // --------------------------------------------------
+
+    const requiredEnv = [
+      "INSTAGRAM_APP_ID",
+      "INSTAGRAM_APP_SECRET",
+      "INSTAGRAM_REDIRECT_URI",
+      "FRONTEND_URL",
+    ];
+
+    const missingEnv = requiredEnv.filter(
+      (key) => !process.env[key]
+    );
+
+    if (missingEnv.length > 0) {
+      console.error(
+        "❌ Missing Instagram environment variables:",
+        missingEnv
+      );
+
+      return res.redirect(
+        `${process.env.FRONTEND_URL || "/"}/instagram/error?message=${encodeURIComponent(
+          "Instagram server configuration is incomplete"
+        )}`
+      );
+    }
+
+    // --------------------------------------------------
+    // 4. VERIFY STATE
+    // --------------------------------------------------
+
+    let stateData;
+
+    try {
+      stateData = verifyState(state);
+    } catch (stateError) {
+      console.error(
+        "❌ Instagram OAuth state verification failed:",
+        stateError.message
+      );
+
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/instagram/error?message=${encodeURIComponent(
+          "Invalid or expired OAuth state"
+        )}`
+      );
+    }
 
     if (!stateData?.userId || !stateData?.userType) {
-      console.error("❌ Invalid Instagram OAuth state");
+      console.error("❌ Invalid Instagram OAuth state:", {
+        hasUserId: !!stateData?.userId,
+        hasUserType: !!stateData?.userType,
+      });
 
       return res.redirect(
         `${process.env.FRONTEND_URL}/instagram/error?message=${encodeURIComponent(
@@ -219,7 +270,10 @@ export const instagramCallback = async (req, res) => {
       );
     }
 
-    const { userId, userType } = stateData;
+    const {
+      userId,
+      userType,
+    } = stateData;
 
     console.log("👤 OAuth user:", {
       userId,
@@ -227,7 +281,7 @@ export const instagramCallback = async (req, res) => {
     });
 
     // --------------------------------------------------
-    // 4. EXCHANGE CODE -> SHORT-LIVED TOKEN
+    // 5. EXCHANGE CODE -> SHORT-LIVED TOKEN
     // --------------------------------------------------
 
     const tokenForm = new URLSearchParams();
@@ -254,21 +308,27 @@ export const instagramCallback = async (req, res) => {
 
     tokenForm.append("code", code);
 
-    console.log("🔄 Exchanging authorization code...");
+    console.log(
+      "🔄 Exchanging authorization code..."
+    );
 
     const tokenResponse = await axios.post(
       "https://api.instagram.com/oauth/access_token",
       tokenForm.toString(),
       {
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type":
+            "application/x-www-form-urlencoded",
         },
         timeout: 15000,
       }
     );
 
-    const shortLivedToken = tokenResponse.data?.access_token;
-    const returnedInstagramUserId = tokenResponse.data?.user_id;
+    const shortLivedToken =
+      tokenResponse.data?.access_token;
+
+    const returnedInstagramUserId =
+      tokenResponse.data?.user_id;
 
     if (!shortLivedToken) {
       console.error(
@@ -276,27 +336,45 @@ export const instagramCallback = async (req, res) => {
         tokenResponse.data
       );
 
-      throw new Error("Instagram access token was not returned");
+      throw new Error(
+        "Instagram access token was not returned"
+      );
     }
 
-    console.log("✅ Short-lived Instagram token received");
+    if (!returnedInstagramUserId) {
+      console.error(
+        "❌ Instagram user ID was not returned:",
+        tokenResponse.data
+      );
+
+      throw new Error(
+        "Instagram user ID was not returned"
+      );
+    }
+
+    console.log(
+      "✅ Short-lived Instagram token received"
+    );
 
     console.log("📸 Instagram OAuth user ID:", {
       returnedInstagramUserId,
     });
 
     // --------------------------------------------------
-    // 5. EXCHANGE SHORT TOKEN -> LONG-LIVED TOKEN
+    // 6. EXCHANGE SHORT TOKEN -> LONG-LIVED TOKEN
     // --------------------------------------------------
 
-    console.log("🔄 Exchanging for long-lived token...");
+    console.log(
+      "🔄 Exchanging for long-lived token..."
+    );
 
     const longTokenResponse = await axios.get(
       "https://graph.instagram.com/access_token",
       {
         params: {
           grant_type: "ig_exchange_token",
-          client_secret: process.env.INSTAGRAM_APP_SECRET,
+          client_secret:
+            process.env.INSTAGRAM_APP_SECRET,
           access_token: shortLivedToken,
         },
         timeout: 15000,
@@ -307,7 +385,7 @@ export const instagramCallback = async (req, res) => {
       longTokenResponse.data?.access_token;
 
     const expiresIn =
-      Number(longTokenResponse.data?.expires_in) || 0;
+      Number(longTokenResponse.data?.expires_in);
 
     if (!longLivedToken) {
       console.error(
@@ -320,23 +398,100 @@ export const instagramCallback = async (req, res) => {
       );
     }
 
+    if (
+      !Number.isFinite(expiresIn) ||
+      expiresIn <= 0
+    ) {
+      console.error(
+        "❌ Invalid Instagram token expiry:",
+        longTokenResponse.data
+      );
+
+      throw new Error(
+        "Instagram token expiry information was not returned"
+      );
+    }
+
     const tokenExpiresAt = new Date(
       Date.now() + expiresIn * 1000
     );
 
-    console.log("✅ Long-lived Instagram token received");
+    console.log(
+      "✅ Long-lived Instagram token received"
+    );
 
     console.log("🔐 Token information:", {
-      tokenReceived: !!longLivedToken,
+      tokenReceived: true,
       expiresIn,
       tokenExpiresAt,
     });
 
     // --------------------------------------------------
-    // 6. GET INSTAGRAM PROFILE
+    // 7. VERIFY LONG-LIVED TOKEN
     // --------------------------------------------------
 
-    console.log("🔄 Fetching Instagram profile...");
+    try {
+      const permissionCheck = await axios.get(
+        "https://graph.instagram.com/me",
+        {
+          params: {
+            fields: "id,username",
+            access_token: longLivedToken,
+          },
+          timeout: 15000,
+        }
+      );
+
+      console.log(
+        "✅ Instagram token test successful:",
+        {
+          id: permissionCheck.data?.id,
+          username:
+            permissionCheck.data?.username,
+          tokenValid: true,
+        }
+      );
+
+      // Verify OAuth user ID matches token user ID
+      if (
+        permissionCheck.data?.id &&
+        String(permissionCheck.data.id) !==
+        String(returnedInstagramUserId)
+      ) {
+        console.error(
+          "❌ Instagram user ID mismatch:",
+          {
+            oauthUserId:
+              returnedInstagramUserId,
+            tokenUserId:
+              permissionCheck.data.id,
+          }
+        );
+
+        throw new Error(
+          "Instagram user ID mismatch"
+        );
+      }
+    } catch (err) {
+      console.error(
+        "❌ Instagram token validation failed:",
+        err.response?.data ||
+        err.message
+      );
+
+      throw new Error(
+        err.response?.data?.error?.message ||
+        "Instagram long-lived token validation failed"
+      );
+    }
+
+    // --------------------------------------------------
+    // 8. GET INSTAGRAM PROFILE
+    // --------------------------------------------------
+
+    console.log(
+      "🔄 Fetching Instagram profile..."
+    );
 
     const profileResponse = await axios.get(
       "https://graph.instagram.com/me",
@@ -350,7 +505,8 @@ export const instagramCallback = async (req, res) => {
       }
     );
 
-    const profile = profileResponse.data;
+    const profile =
+      profileResponse.data;
 
     if (!profile?.id) {
       throw new Error(
@@ -358,17 +514,46 @@ export const instagramCallback = async (req, res) => {
       );
     }
 
-    console.log("✅ Instagram profile received:", {
-      id: profile.id,
-      username: profile.username,
-      name: profile.name,
-      accountType: profile.account_type,
-    });
+    console.log(
+      "✅ Instagram profile received:",
+      {
+        id: profile.id,
+        username: profile.username,
+        name: profile.name,
+        accountType:
+          profile.account_type,
+      }
+    );
 
-    const instagramUserId = String(profile.id);
+    const instagramUserId =
+      String(profile.id);
 
     // --------------------------------------------------
-    // 7. CHECK WHETHER INSTAGRAM ACCOUNT IS ALREADY USED
+    // 9. VERIFY USER ID CONSISTENCY
+    // --------------------------------------------------
+
+    if (
+      String(returnedInstagramUserId) !==
+      instagramUserId
+    ) {
+      console.error(
+        "❌ Instagram user ID mismatch:",
+        {
+          oauthUserId:
+            returnedInstagramUserId,
+          profileUserId:
+            instagramUserId,
+        }
+      );
+
+      throw new Error(
+        "Instagram account verification failed"
+      );
+    }
+
+    // --------------------------------------------------
+    // 10. CHECK WHETHER INSTAGRAM ACCOUNT IS
+    //     ALREADY CONNECTED TO ANOTHER USER
     // --------------------------------------------------
 
     const existingInstagramAccount =
@@ -381,12 +566,18 @@ export const instagramCallback = async (req, res) => {
     if (
       existingInstagramAccount &&
       (
-        Number(existingInstagramAccount.userId) !== Number(userId) ||
-        existingInstagramAccount.userType !== userType
+        Number(
+          existingInstagramAccount.userId
+        ) !== Number(userId) ||
+        existingInstagramAccount.userType !==
+        userType
       )
     ) {
       console.error(
-        "❌ Instagram account already connected to another user"
+        "❌ Instagram account already connected to another user:",
+        {
+          instagramUserId,
+        }
       );
 
       return res.redirect(
@@ -397,7 +588,7 @@ export const instagramCallback = async (req, res) => {
     }
 
     // --------------------------------------------------
-    // 8. FIND CURRENT USER CONNECTION
+    // 11. FIND CURRENT USER CONNECTION
     // --------------------------------------------------
 
     let instagramAccount =
@@ -409,19 +600,24 @@ export const instagramCallback = async (req, res) => {
       });
 
     // --------------------------------------------------
-    // 9. DATA TO SAVE
+    // 12. PREPARE DATA
     // --------------------------------------------------
 
     const instagramData = {
       userId: Number(userId),
+
       userType,
 
       instagramUserId,
 
-      username: profile.username || null,
-      name: profile.name || null,
+      username:
+        profile.username || null,
 
-      accountType: profile.account_type || null,
+      name:
+        profile.name || null,
+
+      accountType:
+        profile.account_type || null,
 
       profilePictureUrl:
         profile.profile_picture_url || null,
@@ -435,18 +631,20 @@ export const instagramCallback = async (req, res) => {
       mediaCount:
         Number(profile.media_count) || 0,
 
-      // VERY IMPORTANT
-      accessToken: longLivedToken,
+      // IMPORTANT
+      accessToken:
+        longLivedToken,
 
       tokenExpiresAt,
 
       isConnected: true,
 
-      lastSyncedAt: new Date(),
+      lastSyncedAt:
+        new Date(),
     };
 
     // --------------------------------------------------
-    // 10. CREATE / UPDATE DATABASE RECORD
+    // 13. CREATE / UPDATE DATABASE RECORD
     // --------------------------------------------------
 
     if (instagramAccount) {
@@ -455,9 +653,10 @@ export const instagramCallback = async (req, res) => {
         instagramAccount.id
       );
 
-      await instagramAccount.update(instagramData);
+      await instagramAccount.update(
+        instagramData
+      );
 
-      // Reload from database
       await instagramAccount.reload();
     } else {
       console.log(
@@ -465,19 +664,26 @@ export const instagramCallback = async (req, res) => {
       );
 
       instagramAccount =
-        await InstagramAccount.create(instagramData);
+        await InstagramAccount.create(
+          instagramData
+        );
     }
 
     // --------------------------------------------------
-    // 11. VERIFY TOKEN WAS ACTUALLY SAVED
+    // 14. VERIFY DATABASE SAVE
     // --------------------------------------------------
 
-    if (!instagramAccount.accessToken) {
+    if (
+      !instagramAccount.accessToken
+    ) {
       console.error(
         "❌ CRITICAL: Instagram account saved WITHOUT access token",
         {
           id: instagramAccount.id,
-          userId: instagramAccount.userId,
+          userId:
+            instagramAccount.userId,
+          userType:
+            instagramAccount.userType,
           instagramUserId:
             instagramAccount.instagramUserId,
         }
@@ -488,21 +694,29 @@ export const instagramCallback = async (req, res) => {
       );
     }
 
-    console.log("✅ Instagram account saved successfully:", {
-      id: instagramAccount.id,
-      userId: instagramAccount.userId,
-      userType: instagramAccount.userType,
-      instagramUserId:
-        instagramAccount.instagramUserId,
-      username: instagramAccount.username,
-      hasAccessToken:
-        !!instagramAccount.accessToken,
-      tokenExpiresAt:
-        instagramAccount.tokenExpiresAt,
-    });
+    console.log(
+      "✅ Instagram account saved successfully:",
+      {
+        id: instagramAccount.id,
+        userId:
+          instagramAccount.userId,
+        userType:
+          instagramAccount.userType,
+        instagramUserId:
+          instagramAccount.instagramUserId,
+        username:
+          instagramAccount.username,
+        hasAccessToken:
+          !!instagramAccount.accessToken,
+        tokenExpiresAt:
+          instagramAccount.tokenExpiresAt,
+        isConnected:
+          instagramAccount.isConnected,
+      }
+    );
 
     // --------------------------------------------------
-    // 12. SUCCESS
+    // 15. SUCCESS
     // --------------------------------------------------
 
     return res.redirect(
@@ -511,7 +725,8 @@ export const instagramCallback = async (req, res) => {
   } catch (error) {
     console.error(
       "❌ Instagram callback error:",
-      error.response?.data || error.message
+      error.response?.data ||
+      error.message
     );
 
     const message =
@@ -852,6 +1067,13 @@ export const getInstagramInsights = async (req, res) => {
       })
     }
 
+    if (!accessToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Instagram access token not found",
+      });
+    }
+
     const {
       accessToken,
       instagramUserId
@@ -868,7 +1090,7 @@ export const getInstagramInsights = async (req, res) => {
       {
         params: {
           metric:
-            'reach,profile_views,accounts_engaged',
+            'reach',
           period: 'day',
           access_token: accessToken
         }
