@@ -486,12 +486,11 @@ export const getInstagramProfile = async (req, res) => {
     console.log("📸 GET /instagram/profile");
     console.log("🔐 req.user:", req.user);
 
-    // 1. Check authentication data
     if (!req.user) {
       return res.status(401).json({
         success: false,
         connected: false,
-        message: "Unauthorized: user information not found"
+        message: "Unauthorized: user information not found",
       });
     }
 
@@ -504,59 +503,85 @@ export const getInstagramProfile = async (req, res) => {
       return res.status(401).json({
         success: false,
         connected: false,
-        message: "Invalid authentication data"
+        message: "Invalid authentication data",
       });
     }
 
-    // 2. Find connected Instagram account
+    // 1. Find connected Instagram account
     const instagramAccount = await InstagramAccount.findOne({
       where: {
         userId: Number(userId),
-        userType: userType,
-        isConnected: true
-      }
+        userType,
+        isConnected: true,
+      },
     });
 
-    console.log("📸 Instagram account:", instagramAccount);
+    console.log("📸 DB Instagram account:", instagramAccount?.toJSON());
 
-    // 3. Instagram not connected
     if (!instagramAccount) {
       return res.status(404).json({
         success: false,
         connected: false,
-        message: "Instagram account not connected"
+        message: "Instagram account not connected",
       });
     }
 
-    // 4. Return profile
+    // 2. Check access token
+    if (!instagramAccount.accessToken) {
+      return res.status(401).json({
+        success: false,
+        connected: false,
+        message: "Instagram access token not found",
+      });
+    }
+
+    // 3. Fetch latest profile from Instagram
+    const profileResponse = await axios.get(
+      "https://graph.instagram.com/me",
+      {
+        params: {
+          fields:
+            "id,username,name,account_type,profile_picture_url,followers_count,follows_count,media_count",
+          access_token: instagramAccount.accessToken,
+        },
+      }
+    );
+
+    const profile = profileResponse.data;
+
+    console.log("📸 Fresh Instagram profile:", profile);
+
+    // 4. Update database with latest Instagram data
+    await instagramAccount.update({
+      instagramUserId: String(profile.id),
+      username: profile.username || null,
+      name: profile.name || null,
+      accountType: profile.account_type || null,
+      profilePictureUrl: profile.profile_picture_url || null,
+      followersCount: profile.followers_count ?? 0,
+      followingCount: profile.follows_count ?? 0,
+      mediaCount: profile.media_count ?? 0,
+      lastSyncedAt: new Date(),
+    });
+
+    // 5. Return fresh data
     return res.status(200).json({
       success: true,
       connected: true,
       data: {
-        username: instagramAccount.username || null,
-        name: instagramAccount.name || null,
-        accountType: instagramAccount.accountType || null,
-        profilePictureUrl: instagramAccount.profilePictureUrl || null,
-        followersCount: instagramAccount.followersCount ?? 0,
-        followingCount: instagramAccount.followingCount ?? 0,
-        mediaCount: instagramAccount.mediaCount ?? 0
-      }
+        username: profile.username || null,
+        name: profile.name || null,
+        accountType: profile.account_type || null,
+        profilePictureUrl: profile.profile_picture_url || null,
+        followersCount: profile.followers_count ?? 0,
+        followingCount: profile.follows_count ?? 0,
+        mediaCount: profile.media_count ?? 0,
+      },
     });
-
   } catch (error) {
     console.error("❌ Get Instagram profile error:");
     console.error("Message:", error.message);
-    console.error("Name:", error.name);
-    console.error("Stack:", error.stack);
-
-    // Sequelize specific error information
-    if (error?.parent) {
-      console.error("❌ DB Error:", error.parent);
-    }
-
-    if (error?.original) {
-      console.error("❌ Original DB Error:", error.original);
-    }
+    console.error("Instagram Error:", error.response?.data);
 
     return res.status(500).json({
       success: false,
@@ -565,10 +590,11 @@ export const getInstagramProfile = async (req, res) => {
       error:
         process.env.NODE_ENV === "production"
           ? undefined
-          : error.message
+          : error.response?.data || error.message,
     });
   }
 };
+
 
 /*
 |--------------------------------------------------------------------------
