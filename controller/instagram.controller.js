@@ -84,52 +84,71 @@ const verifyState = state => {
 
 export const connectInstagram = async (req, res) => {
   try {
-    const user = req.user
+    const user = req.user;
 
-    console.log('📸 Instagram connect request:', {
-      userId: user.userId,
-      userType: user.userType
-    })
+    console.log("📸 Instagram connect request:", {
+      userId: user?.userId,
+      userType: user?.userType,
+    });
 
-    if (!user?.userId) {
+    if (!user?.userId || !user?.userType) {
       return res.status(401).json({
         success: false,
-        message: 'Unauthorized user'
-      })
+        connected: false,
+        message: "Unauthorized user",
+      });
     }
 
-    const state = createState(user)
+    if (
+      !process.env.INSTAGRAM_APP_ID ||
+      !process.env.INSTAGRAM_APP_SECRET ||
+      !process.env.INSTAGRAM_REDIRECT_URI
+    ) {
+      console.error("❌ Instagram OAuth environment variables missing");
 
-    const scopes = ['instagram_business_basic']
+      return res.status(500).json({
+        success: false,
+        message: "Instagram OAuth configuration is missing",
+      });
+    }
+
+    const state = createState({
+      userId: user.userId,
+      userType: user.userType,
+    });
 
     const params = new URLSearchParams({
       client_id: process.env.INSTAGRAM_APP_ID,
       redirect_uri: process.env.INSTAGRAM_REDIRECT_URI,
-      response_type: 'code',
-      scope: scopes.join(','),
-      state
-    })
+      response_type: "code",
+      scope: "instagram_business_basic",
+      state,
+    });
 
-    const instagramAuthUrl = `https://www.instagram.com/oauth/authorize?${params.toString()}`
+    const authUrl =
+      `https://www.instagram.com/oauth/authorize?${params.toString()}`;
 
-    console.log('📸 Redirecting to Instagram OAuth')
+    console.log("✅ Instagram OAuth URL generated");
 
     return res.status(200).json({
       success: true,
-      message: 'Instagram authorization URL generated',
+      message: "Instagram authorization URL generated",
       data: {
-        authUrl: instagramAuthUrl
-      }
-    })
+        authUrl,
+      },
+    });
   } catch (error) {
-    console.error('❌ Instagram connect error:', error.message)
+    console.error(
+      "❌ Instagram connect error:",
+      error.response?.data || error.message
+    );
 
     return res.status(500).json({
       success: false,
-      message: 'Failed to start Instagram connection'
-    })
+      message: "Failed to start Instagram connection",
+    });
   }
-}
+};
 
 /*
 |--------------------------------------------------------------------------
@@ -139,341 +158,375 @@ export const connectInstagram = async (req, res) => {
 
 export const instagramCallback = async (req, res) => {
   try {
-    const { code, state, error, error_description } = req.query
+    const { code, state, error, error_description } = req.query;
 
-    /*
-    |--------------------------------------------------------------------------
-    | User denied permission
-    |--------------------------------------------------------------------------
-    */
+    console.log("📸 Instagram callback received");
+
+    // --------------------------------------------------
+    // 1. INSTAGRAM DENIED AUTHORIZATION
+    // --------------------------------------------------
 
     if (error) {
-      console.error(
-        '❌ Instagram authorization error:',
+      console.error("❌ Instagram authorization error:", {
         error,
-        error_description
-      )
+        error_description,
+      });
 
       return res.redirect(
         `${process.env.FRONTEND_URL}/instagram/error?message=${encodeURIComponent(
-          error_description || 'Instagram authorization failed'
+          error_description || "Instagram authorization failed"
         )}`
-      )
+      );
     }
+
+    // --------------------------------------------------
+    // 2. CODE CHECK
+    // --------------------------------------------------
 
     if (!code) {
+      console.error("❌ Instagram authorization code missing");
+
       return res.redirect(
         `${process.env.FRONTEND_URL}/instagram/error?message=${encodeURIComponent(
-          'Authorization code missing'
+          "Authorization code missing"
         )}`
-      )
+      );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Verify state
-    |--------------------------------------------------------------------------
-    */
+    // --------------------------------------------------
+    // 3. STATE CHECK
+    // --------------------------------------------------
 
-    const stateData = verifyState(state)
+    if (!state) {
+      console.error("❌ Instagram state missing");
 
-    const { userId, userType } = stateData
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/instagram/error?message=${encodeURIComponent(
+          "OAuth state missing"
+        )}`
+      );
+    }
 
-    console.log('📸 Instagram callback user:', {
+    const stateData = verifyState(state);
+
+    if (!stateData?.userId || !stateData?.userType) {
+      console.error("❌ Invalid Instagram OAuth state");
+
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/instagram/error?message=${encodeURIComponent(
+          "Invalid OAuth state"
+        )}`
+      );
+    }
+
+    const { userId, userType } = stateData;
+
+    console.log("👤 OAuth user:", {
       userId,
-      userType
-    })
+      userType,
+    });
 
-    /*
-    |--------------------------------------------------------------------------
-    | STEP 1
-    | Exchange authorization code for short-lived access token
-    |--------------------------------------------------------------------------
-    */
+    // --------------------------------------------------
+    // 4. EXCHANGE CODE -> SHORT-LIVED TOKEN
+    // --------------------------------------------------
 
-    const formData = new URLSearchParams()
+    const tokenForm = new URLSearchParams();
 
-    formData.append(
-      'client_id',
+    tokenForm.append(
+      "client_id",
       process.env.INSTAGRAM_APP_ID
-    )
+    );
 
-    formData.append(
-      'client_secret',
+    tokenForm.append(
+      "client_secret",
       process.env.INSTAGRAM_APP_SECRET
-    )
+    );
 
-    formData.append(
-      'grant_type',
-      'authorization_code'
-    )
+    tokenForm.append(
+      "grant_type",
+      "authorization_code"
+    );
 
-    formData.append(
-      'redirect_uri',
+    tokenForm.append(
+      "redirect_uri",
       process.env.INSTAGRAM_REDIRECT_URI
-    )
+    );
 
-    formData.append(
-      'code',
-      code
-    )
+    tokenForm.append("code", code);
+
+    console.log("🔄 Exchanging authorization code...");
 
     const tokenResponse = await axios.post(
-      'https://api.instagram.com/oauth/access_token',
-      formData,
+      "https://api.instagram.com/oauth/access_token",
+      tokenForm.toString(),
       {
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        timeout: 15000,
       }
-    )
+    );
 
-    const {
-      access_token: shortLivedToken,
-      user_id: returnedInstagramUserId
-    } = tokenResponse.data
+    const shortLivedToken = tokenResponse.data?.access_token;
+    const returnedInstagramUserId = tokenResponse.data?.user_id;
 
-    console.log('✅ Instagram short-lived token received')
+    if (!shortLivedToken) {
+      console.error(
+        "❌ Instagram did not return access token:",
+        tokenResponse.data
+      );
 
-    console.log(
-      '📸 Instagram OAuth user ID:',
-      returnedInstagramUserId
-    )
+      throw new Error("Instagram access token was not returned");
+    }
 
-    /*
-    |--------------------------------------------------------------------------
-    | STEP 2
-    | Exchange short-lived token for long-lived token
-    |--------------------------------------------------------------------------
-    */
+    console.log("✅ Short-lived Instagram token received");
+
+    console.log("📸 Instagram OAuth user ID:", {
+      returnedInstagramUserId,
+    });
+
+    // --------------------------------------------------
+    // 5. EXCHANGE SHORT TOKEN -> LONG-LIVED TOKEN
+    // --------------------------------------------------
+
+    console.log("🔄 Exchanging for long-lived token...");
 
     const longTokenResponse = await axios.get(
-      'https://graph.instagram.com/access_token',
+      "https://graph.instagram.com/access_token",
       {
         params: {
-          grant_type: 'ig_exchange_token',
+          grant_type: "ig_exchange_token",
           client_secret: process.env.INSTAGRAM_APP_SECRET,
-          access_token: shortLivedToken
-        }
+          access_token: shortLivedToken,
+        },
+        timeout: 15000,
       }
-    )
+    );
 
-    const {
-      access_token: longLivedToken,
-      expires_in
-    } = longTokenResponse.data
+    const longLivedToken =
+      longTokenResponse.data?.access_token;
 
-    console.log('✅ Long-lived Instagram token received')
+    const expiresIn =
+      Number(longTokenResponse.data?.expires_in) || 0;
 
-    /*
-    |--------------------------------------------------------------------------
-    | Calculate expiry
-    |--------------------------------------------------------------------------
-    */
+    if (!longLivedToken) {
+      console.error(
+        "❌ Long-lived token missing:",
+        longTokenResponse.data
+      );
+
+      throw new Error(
+        "Instagram long-lived access token was not returned"
+      );
+    }
 
     const tokenExpiresAt = new Date(
-      Date.now() + expires_in * 1000
-    )
+      Date.now() + expiresIn * 1000
+    );
 
-    /*
-    |--------------------------------------------------------------------------
-    | STEP 3
-    | Get Instagram profile
-    |--------------------------------------------------------------------------
-    */
+    console.log("✅ Long-lived Instagram token received");
 
+    console.log("🔐 Token information:", {
+      tokenReceived: !!longLivedToken,
+      expiresIn,
+      tokenExpiresAt,
+    });
+
+    // --------------------------------------------------
+    // 6. GET INSTAGRAM PROFILE
+    // --------------------------------------------------
+
+    console.log("🔄 Fetching Instagram profile...");
 
     const profileResponse = await axios.get(
-      'https://graph.instagram.com/me',
+      "https://graph.instagram.com/me",
       {
         params: {
           fields:
-            'id,username,name,account_type,profile_picture_url,followers_count,follows_count,media_count',
-          access_token: longLivedToken
-        }
+            "id,username,name,account_type,profile_picture_url,followers_count,follows_count,media_count",
+          access_token: longLivedToken,
+        },
+        timeout: 15000,
       }
-    )
+    );
 
-    const profile = profileResponse.data
+    const profile = profileResponse.data;
 
-    console.log('📸 Instagram profile:', profile)
+    if (!profile?.id) {
+      throw new Error(
+        "Instagram profile could not be retrieved"
+      );
+    }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Instagram account ID
-    |--------------------------------------------------------------------------
-    */
-
-    const instagramUserId = profile.id
-
-    console.log('📸 Instagram profile details:', {
+    console.log("✅ Instagram profile received:", {
       id: profile.id,
       username: profile.username,
       name: profile.name,
       accountType: profile.account_type,
-      profilePictureUrl: profile.profile_picture_url,
-      followersCount: profile.followers_count,
-      followingCount: profile.follows_count,
-      mediaCount: profile.media_count
-    })
-    /*
-    |--------------------------------------------------------------------------
-    | STEP 4
-    | Check if Instagram account already exists
-    |--------------------------------------------------------------------------
-    */
+    });
+
+    const instagramUserId = String(profile.id);
+
+    // --------------------------------------------------
+    // 7. CHECK WHETHER INSTAGRAM ACCOUNT IS ALREADY USED
+    // --------------------------------------------------
 
     const existingInstagramAccount =
       await InstagramAccount.findOne({
         where: {
-          instagramUserId: String(instagramUserId)
-        }
-      })
-    /*
-    |--------------------------------------------------------------------------
-    | Prevent same Instagram account from being connected
-    | to another user
-    |--------------------------------------------------------------------------
-    */
+          instagramUserId,
+        },
+      });
+
     if (
       existingInstagramAccount &&
       (
-        existingInstagramAccount.userId !== Number(userId) ||
+        Number(existingInstagramAccount.userId) !== Number(userId) ||
         existingInstagramAccount.userType !== userType
       )
     ) {
+      console.error(
+        "❌ Instagram account already connected to another user"
+      );
+
       return res.redirect(
         `${process.env.FRONTEND_URL}/instagram/error?message=${encodeURIComponent(
-          'This Instagram account is already connected to another user'
+          "This Instagram account is already connected to another user"
         )}`
-      )
+      );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | STEP 5
-    | Check current user's Instagram connection
-    |--------------------------------------------------------------------------
-    */
+    // --------------------------------------------------
+    // 8. FIND CURRENT USER CONNECTION
+    // --------------------------------------------------
 
-    const existingUserConnection =
+    let instagramAccount =
       await InstagramAccount.findOne({
         where: {
           userId: Number(userId),
-          userType
+          userType,
+        },
+      });
+
+    // --------------------------------------------------
+    // 9. DATA TO SAVE
+    // --------------------------------------------------
+
+    const instagramData = {
+      userId: Number(userId),
+      userType,
+
+      instagramUserId,
+
+      username: profile.username || null,
+      name: profile.name || null,
+
+      accountType: profile.account_type || null,
+
+      profilePictureUrl:
+        profile.profile_picture_url || null,
+
+      followersCount:
+        Number(profile.followers_count) || 0,
+
+      followingCount:
+        Number(profile.follows_count) || 0,
+
+      mediaCount:
+        Number(profile.media_count) || 0,
+
+      // VERY IMPORTANT
+      accessToken: longLivedToken,
+
+      tokenExpiresAt,
+
+      isConnected: true,
+
+      lastSyncedAt: new Date(),
+    };
+
+    // --------------------------------------------------
+    // 10. CREATE / UPDATE DATABASE RECORD
+    // --------------------------------------------------
+
+    if (instagramAccount) {
+      console.log(
+        "🔄 Updating existing Instagram account:",
+        instagramAccount.id
+      );
+
+      await instagramAccount.update(instagramData);
+
+      // Reload from database
+      await instagramAccount.reload();
+    } else {
+      console.log(
+        "➕ Creating new Instagram account"
+      );
+
+      instagramAccount =
+        await InstagramAccount.create(instagramData);
+    }
+
+    // --------------------------------------------------
+    // 11. VERIFY TOKEN WAS ACTUALLY SAVED
+    // --------------------------------------------------
+
+    if (!instagramAccount.accessToken) {
+      console.error(
+        "❌ CRITICAL: Instagram account saved WITHOUT access token",
+        {
+          id: instagramAccount.id,
+          userId: instagramAccount.userId,
+          instagramUserId:
+            instagramAccount.instagramUserId,
         }
-      })
+      );
 
-    let instagramAccount
-
-    /*
-    |--------------------------------------------------------------------------
-    | UPDATE
-    |--------------------------------------------------------------------------
-    */
-
-    if (existingUserConnection) {
-      await existingUserConnection.update({
-        instagramUserId: String(instagramUserId),
-
-        username: profile.username || null,
-
-        name: profile.name || null,
-
-        accountType: profile.account_type || null,
-
-        profilePictureUrl: profile.profile_picture_url || null,
-
-        followersCount: profile.followers_count || 0,
-
-        followingCount: profile.follows_count || 0,
-
-        mediaCount: profile.media_count || 0,
-
-        accessToken: longLivedToken,
-
-        tokenExpiresAt,
-
-        isConnected: true,
-
-        lastSyncedAt: new Date()
-      })
-      instagramAccount = existingUserConnection
+      throw new Error(
+        "Instagram access token was not saved in database"
+      );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | CREATE
-    |--------------------------------------------------------------------------
-    */
+    console.log("✅ Instagram account saved successfully:", {
+      id: instagramAccount.id,
+      userId: instagramAccount.userId,
+      userType: instagramAccount.userType,
+      instagramUserId:
+        instagramAccount.instagramUserId,
+      username: instagramAccount.username,
+      hasAccessToken:
+        !!instagramAccount.accessToken,
+      tokenExpiresAt:
+        instagramAccount.tokenExpiresAt,
+    });
 
-    else {
-      instagramAccount = await InstagramAccount.create({
-        userId: Number(userId),
-
-        userType,
-
-        instagramUserId: String(instagramUserId),
-
-        username: profile.username || null,
-
-        name: profile.name || null,
-
-        accountType: profile.account_type || null,
-
-        profilePictureUrl: profile.profile_picture_url || null,
-
-        followersCount: profile.followers_count || 0,
-
-        followingCount: profile.follows_count || 0,
-
-        mediaCount: profile.media_count || 0,
-
-        accessToken: longLivedToken,
-
-        tokenExpiresAt,
-
-        isConnected: true,
-
-        lastSyncedAt: new Date()
-      })
-
-
-    }
-
-    console.log(
-      '✅ Instagram account saved:',
-      instagramAccount.id
-    )
-
-    /*
-    |--------------------------------------------------------------------------
-    | Redirect
-    |--------------------------------------------------------------------------
-    */
+    // --------------------------------------------------
+    // 12. SUCCESS
+    // --------------------------------------------------
 
     return res.redirect(
       `${process.env.FRONTEND_URL}/instagram/success`
-    )
+    );
   } catch (error) {
     console.error(
-      '❌ Instagram callback error:',
+      "❌ Instagram callback error:",
       error.response?.data || error.message
-    )
+    );
 
     const message =
       error.response?.data?.error?.message ||
       error.response?.data?.error_message ||
       error.message ||
-      'Instagram connection failed'
+      "Instagram connection failed";
 
     return res.redirect(
       `${process.env.FRONTEND_URL}/instagram/error?message=${encodeURIComponent(
         message
       )}`
-    )
+    );
   }
-}
+};
 
 /*
 |--------------------------------------------------------------------------
@@ -594,7 +647,6 @@ export const getInstagramProfile = async (req, res) => {
     });
   }
 };
-
 
 /*
 |--------------------------------------------------------------------------
