@@ -209,12 +209,14 @@ export const sendMessage = async (req, res) => {
   }
 }
 
+
 export const markMessageRead = async (req, res) => {
   try {
     const { roomId, messageId } = req.params
 
     const user = req.user
 
+    // 1. Check room access
     const access = await ChatAuthorizationService.canAccessRoom({
       roomId,
       userId: user.userId,
@@ -228,6 +230,7 @@ export const markMessageRead = async (req, res) => {
       })
     }
 
+    // 2. Find message
     const message = await ChatMessage.findOne({
       where: {
         id: messageId,
@@ -242,7 +245,7 @@ export const markMessageRead = async (req, res) => {
       })
     }
 
-    // Don't mark your own message as read
+    // 3. Don't mark your own message as read
     if (Number(message.senderId) === Number(user.userId)) {
       return res.status(400).json({
         success: false,
@@ -250,10 +253,45 @@ export const markMessageRead = async (req, res) => {
       })
     }
 
-    message.readAt = new Date()
+    // 4. Already read
+    if (message.readAt) {
+      return res.status(200).json({
+        success: true,
+        message: 'Message already marked as read',
+        data: {
+          message
+        }
+      })
+    }
+
+    // 5. Mark message as read
+    const readAt = new Date()
+
+    message.readAt = readAt
 
     await message.save()
 
+    // 6. Get Socket.IO instance
+    const io = req.app.get('io')
+
+    // 7. Emit message-read event
+    if (io) {
+      io.to(`chat:${roomId}`).emit(
+        'chat:message-read',
+        {
+          roomId: Number(roomId),
+          messageId: Number(messageId),
+          readBy: Number(user.userId),
+          readByType:
+            user.userType === 'business'
+              ? 'brand'
+              : 'creator',
+          readAt
+        }
+      )
+    }
+
+    // 8. API response
     return res.status(200).json({
       success: true,
       message: 'Message marked as read',
@@ -271,11 +309,14 @@ export const markMessageRead = async (req, res) => {
   }
 }
 
+
 export const markAllMessagesRead = async (req, res) => {
   try {
     const { roomId } = req.params
+
     const user = req.user
 
+    // 1. Check room access
     const access = await ChatAuthorizationService.canAccessRoom({
       roomId,
       userId: user.userId,
@@ -289,16 +330,26 @@ export const markAllMessagesRead = async (req, res) => {
       })
     }
 
-    const senderType = user.userType === 'business' ? 'brand' : 'creator'
+    // 2. Convert user type
+    const senderType =
+      user.userType === 'business'
+        ? 'brand'
+        : 'creator'
 
-    await ChatMessage.update(
+    // 3. Use ONE timestamp for all messages
+    const readAt = new Date()
+
+    // 4. Mark all unread messages as read
+    const [updatedCount] = await ChatMessage.update(
       {
-        readAt: new Date()
+        readAt
       },
       {
         where: {
           roomId,
           readAt: null,
+
+          // Don't mark current user's own messages
           [Op.not]: {
             senderId: Number(user.userId),
             senderType
@@ -307,9 +358,30 @@ export const markAllMessagesRead = async (req, res) => {
       }
     )
 
+    // 5. Get Socket.IO instance
+    const io = req.app.get('io')
+
+    // 6. Emit only if messages were actually updated
+    if (updatedCount > 0 && io) {
+      io.to(`chat:${roomId}`).emit(
+        'chat:messages-read',
+        {
+          roomId: Number(roomId),
+          readBy: Number(user.userId),
+          readByType: senderType,
+          readAt,
+          updatedCount
+        }
+      )
+    }
+
+    // 7. API response
     return res.status(200).json({
       success: true,
-      message: 'All messages marked as read'
+      message: 'All messages marked as read',
+      data: {
+        updatedCount
+      }
     })
   } catch (error) {
     console.error('markAllMessagesRead error:', error)
@@ -357,8 +429,8 @@ export const getChats = async (req, res) => {
       userType === 'business'
         ? 'brand'
         : userType === 'influencer'
-        ? 'creator'
-        : null
+          ? 'creator'
+          : null
 
     if (!senderType) {
       return res.status(403).json({
@@ -374,21 +446,21 @@ export const getChats = async (req, res) => {
     const where =
       userType === 'business'
         ? {
-            brandId: userId,
+          brandId: userId,
 
-            brandArchivedAt: {
-              [Op.is]: null
-            }
+          brandArchivedAt: {
+            [Op.is]: null
           }
+        }
         : userType === 'influencer'
-        ? {
+          ? {
             creatorId: userId,
 
             creatorArchivedAt: {
               [Op.is]: null
             }
           }
-        : null
+          : null
 
     const rooms = await ChatRoom.findAll({
       where,
@@ -514,8 +586,8 @@ export const getUnreadCount = async (req, res) => {
       user.userType === 'business'
         ? 'brand'
         : user.userType === 'influencer'
-        ? 'creator'
-        : null
+          ? 'creator'
+          : null
 
     if (!senderType) {
       return res.status(403).json({
