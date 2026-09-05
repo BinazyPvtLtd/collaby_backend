@@ -1,5 +1,4 @@
 // middleware/chatSocketAuth.js
-
 import jwt from 'jsonwebtoken'
 
 export const chatSocketAuth = (socket, next) => {

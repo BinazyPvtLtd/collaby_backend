@@ -420,47 +420,27 @@ export const getChats = async (req, res) => {
     }
 
     // ============================================================
-    // NORMALIZE USER TYPE TO MESSAGE SENDER TYPE
-    // business -> brand
-    // influencer -> creator
+    // UNREAD MESSAGE SENDER TYPE
+    // business -> count creator messages
+    // influencer -> count brand messages
     // ============================================================
+    const unreadSenderType = userType === 'business' ? 'creator' : 'brand'
 
-    const senderType =
-      userType === 'business'
-        ? 'brand'
-        : userType === 'influencer'
-          ? 'creator'
-          : null
+    // ============================================================
+    // FIND ROOMS BELONGING TO CURRENT PARTICIPANT
+    // ============================================================
+    const where = userType === 'business'
+      ? { brandId: userId, brandArchivedAt: { [Op.is]: null } }
+      : userType === 'influencer'
+        ? { creatorId: userId, creatorArchivedAt: { [Op.is]: null } }
+        : null
 
-    if (!senderType) {
+    if (!where) {
       return res.status(403).json({
         success: false,
         message: 'Invalid user type'
       })
     }
-
-    // ============================================================
-    // FIND ROOMS BELONGING TO CURRENT PARTICIPANT
-    // ============================================================
-
-    const where =
-      userType === 'business'
-        ? {
-          brandId: userId,
-
-          brandArchivedAt: {
-            [Op.is]: null
-          }
-        }
-        : userType === 'influencer'
-          ? {
-            creatorId: userId,
-
-            creatorArchivedAt: {
-              [Op.is]: null
-            }
-          }
-          : null
 
     const rooms = await ChatRoom.findAll({
       where,
@@ -473,28 +453,19 @@ export const getChats = async (req, res) => {
     // ============================================================
     // BUILD CHAT RESPONSE
     // ============================================================
-
     const chats = await Promise.all(
       rooms.map(async room => {
         const latestMessage = await ChatMessage.findOne({
-          where: {
-            roomId: room.id
-          },
+          where: { roomId: room.id },
           order: [['createdAt', 'DESC']]
         })
 
         const unreadCount = await ChatMessage.count({
           where: {
             roomId: room.id,
-
-            readAt: {
-              [Op.is]: null
-            },
-
-            // Don't count current user's own messages
-            [Op.not]: literal(
-              `"sender_id" = ${userId} AND "sender_type" = '${senderType}'`
-            )
+            senderType: unreadSenderType,
+            readAt: null,
+            deletedAt: null
           }
         })
 
@@ -505,15 +476,10 @@ export const getChats = async (req, res) => {
           creatorId: room.creatorId,
           roomKey: room.roomKey,
           status: room.status,
-
           lastMessageAt: room.lastMessageAt,
-
           unreadCount,
-
           lastMessage: latestMessage ? latestMessage.toJSON() : null,
-
           createdAt: room.createdAt,
-
           updatedAt: room.updatedAt
         }
       })
@@ -521,9 +487,7 @@ export const getChats = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: {
-        chats
-      }
+      data: { chats }
     })
   } catch (error) {
     console.error('getChats error:', error)
