@@ -49,6 +49,7 @@ import ChatSocketService from "./socket/chat.socket.js";
 import "./models/Associations.js";
 
 const app = express();
+app.set('trust proxy', 1)
 
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
