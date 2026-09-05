@@ -2,6 +2,7 @@ import ChatReport from '../models/ChatReport.js'
 import ChatMessage from '../models/ChatMessage.js'
 import ChatRoom from '../models/ChatRoom.js'
 import ChatAuthorizationService from '../services/ChatAuthorizationService.js'
+import BusinessRegistration from '../models/BusinessRegistration.js'
 import { Op, fn, col, literal } from 'sequelize'
 
 export const getMessages = async (req, res) => {
