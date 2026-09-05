@@ -421,19 +421,35 @@ export const getChats = async (req, res) => {
 
     // ============================================================
     // UNREAD MESSAGE SENDER TYPE
-    // business -> count creator messages
+    // business   -> count creator messages
     // influencer -> count brand messages
     // ============================================================
-    const unreadSenderType = userType === 'business' ? 'creator' : 'brand'
+
+    const unreadSenderType =
+      userType === 'business'
+        ? 'creator'
+        : 'brand'
 
     // ============================================================
     // FIND ROOMS BELONGING TO CURRENT PARTICIPANT
     // ============================================================
-    const where = userType === 'business'
-      ? { brandId: userId, brandArchivedAt: { [Op.is]: null } }
-      : userType === 'influencer'
-        ? { creatorId: userId, creatorArchivedAt: { [Op.is]: null } }
-        : null
+
+    const where =
+      userType === 'business'
+        ? {
+          brandId: userId,
+          brandArchivedAt: {
+            [Op.is]: null
+          }
+        }
+        : userType === 'influencer'
+          ? {
+            creatorId: userId,
+            creatorArchivedAt: {
+              [Op.is]: null
+            }
+          }
+          : null
 
     if (!where) {
       return res.status(403).json({
@@ -444,6 +460,7 @@ export const getChats = async (req, res) => {
 
     const rooms = await ChatRoom.findAll({
       where,
+
       order: [
         ['lastMessageAt', 'DESC'],
         ['updatedAt', 'DESC']
@@ -453,12 +470,25 @@ export const getChats = async (req, res) => {
     // ============================================================
     // BUILD CHAT RESPONSE
     // ============================================================
+
     const chats = await Promise.all(
       rooms.map(async room => {
         const latestMessage = await ChatMessage.findOne({
-          where: { roomId: room.id },
-          order: [['createdAt', 'DESC']]
+          where: {
+            roomId: room.id
+          },
+
+          order: [
+            ['createdAt', 'DESC']
+          ]
         })
+
+        // ========================================================
+        // TEMPORARY UNREAD DEBUG LOGS
+        // ========================================================
+        console.log('USER TYPE:', userType)
+        console.log('UNREAD SENDER TYPE:', unreadSenderType)
+        console.log('ROOM ID:', room.id)
 
         const unreadCount = await ChatMessage.count({
           where: {
@@ -469,6 +499,7 @@ export const getChats = async (req, res) => {
           }
         })
 
+        console.log('UNREAD COUNT:', unreadCount)
         return {
           id: room.id,
           campaignId: room.campaignId,
@@ -476,9 +507,15 @@ export const getChats = async (req, res) => {
           creatorId: room.creatorId,
           roomKey: room.roomKey,
           status: room.status,
+
           lastMessageAt: room.lastMessageAt,
+
           unreadCount,
-          lastMessage: latestMessage ? latestMessage.toJSON() : null,
+
+          lastMessage: latestMessage
+            ? latestMessage.toJSON()
+            : null,
+
           createdAt: room.createdAt,
           updatedAt: room.updatedAt
         }
@@ -487,8 +524,11 @@ export const getChats = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: { chats }
+      data: {
+        chats
+      }
     })
+
   } catch (error) {
     console.error('getChats error:', error)
 
@@ -499,6 +539,7 @@ export const getChats = async (req, res) => {
     })
   }
 }
+
 // ============================================================
 // GET UNREAD COUNT
 // GET /api/chat/:roomId/unread-count
