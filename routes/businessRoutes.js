@@ -6,12 +6,20 @@ import {
   updateBusiness,
   deleteBusinessByPhone,
 } from "../controller/businessController.js";
-import { verifyToken } from "../middleware/AuthMiddleware.js";
+import {
+  verifyBusinessAccess,
+  requireBusinessAdmin,
+} from "../middleware/BusinessAuthMiddleware.js";
 const router = express.Router();
 
 router.post("/register", createBusiness);
-router.get("/", verifyToken, getAllBusinesses);
-router.get("/:id", verifyToken, getBusinessById);
-router.put("/:id", verifyToken, updateBusiness);
-router.delete("/:phone", deleteBusinessByPhone);
+router.get("/", verifyBusinessAccess, getAllBusinesses);
+router.get("/:id", verifyBusinessAccess, getBusinessById);
+router.put("/:id", verifyBusinessAccess, updateBusiness);
+router.delete(
+  "/:phone",
+  verifyBusinessAccess,
+  requireBusinessAdmin,
+  deleteBusinessByPhone,
+);
 export default router;

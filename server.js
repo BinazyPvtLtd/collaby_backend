@@ -9,6 +9,7 @@ import http from "http";
 import { Server } from "socket.io";
 import sequelize from "./config/database.js";
 import cookieParser from "cookie-parser";
+
 import otpRoutes from "./routes/OtpRoutes.js";
 import authRoutes from "./routes/AuthRoutes.js";
 import influencerRoutes from "./routes/InfluencerRoutes.js";
@@ -37,23 +38,40 @@ import productRoutes from "./routes/productRoutes.js";
 import allCampaignDataRoutes from "./routes/AllCampaignDataRoute.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 import dealRoutes from "./routes/dealRoutes.js";
-import { seedCampaignTypes } from "./seeders/seedCampaignTypes.js";
-import { runAllSeeders } from "./seeders/runAllSeeders.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import instagramRoutes from "./routes/instagram.routes.js";
-// TODO: confirm these two paths/export names against the actual files
+
+import { seedCampaignTypes } from "./seeders/seedCampaignTypes.js";
+import { runAllSeeders } from "./seeders/runAllSeeders.js";
+
 import { chatSocketAuth } from "./middleware/chatSocketAuth.js";
 import ChatSocketService from "./socket/chat.socket.js";
+
 import "./models/Associations.js";
+
+// ============================================================
+// EXPRESS APP
+// ============================================================
 
 const app = express();
 app.set('trust proxy', 1)
 
+// ============================================================
+// MIDDLEWARE
+// ============================================================
+
 app.use(cookieParser());
+
 app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: "10mb",
+  }),
+);
 
 // ============================================================
 // HTTP SERVER
@@ -81,9 +99,15 @@ ChatSocketService.initialize(io);
 // Make io available inside controllers
 app.set("io", io);
 
+// ============================================================
+// SECURITY
+// ============================================================
+
 app.use(
   helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginResourcePolicy: {
+      policy: "cross-origin",
+    },
   }),
 );
 
@@ -92,12 +116,21 @@ const authLimiter = rateLimit({
   max: 50,
   message: "Too many attempts, try again later",
 });
+
 app.use("/api/auth", authLimiter);
+
+// ============================================================
+// REQUEST LOGGER
+// ============================================================
 
 app.use((req, res, next) => {
   console.log("Incoming:", req.method, req.url);
   next();
 });
+
+// ============================================================
+// CORS
+// ============================================================
 
 app.use(
   cors({
@@ -105,6 +138,10 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   }),
 );
+
+// ============================================================
+// STATIC FILES
+// ============================================================
 
 app.use(
   "/uploads",
@@ -114,76 +151,119 @@ app.use(
   }),
 );
 
+// ============================================================
+// ROOT ROUTE
+// ============================================================
+
 app.get("/", (req, res) => {
   res.send("Collaby Backend Running ");
 });
 
+// ============================================================
+// API ROUTES
+// ============================================================
+
 app.use("/api/auth", otpRoutes);
 app.use("/api/auth", authRoutes);
+
 app.use("/api/influencers", influencerRoutes);
 app.use("/api/cities", cityRoutes);
+
 app.use("/api", businessTypeRoutes);
 app.use("/api/business", businessRoutes);
+
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/brands", brandRoutes);
+
 app.use("/api/campaigns-step1", businessHackRoutes);
 app.use("/api/campaigns-details", businessHackDetailRoutes);
 app.use("/api/campaigns-step3", businessHackStep3Routes);
 app.use("/api/campaigns-step4", businessHackStep4Routes);
+
 app.use("/api/influencers-user", influencerUserRoutes);
 app.use("/api/categories", influencerCategoryRoutes);
+
 app.use("/api/profiles", profileRoutes);
 app.use("/api/business-profile", BusinessRoutes);
+
 app.use("/api/city", cityRoutesTwo);
 app.use("/api", influencerListRoutes);
+
 app.use("/api/inhacks", inhacksRoutes);
 app.use("/api/business-hacks-video", businessHacksRoutes);
+
 app.use("/api/referrals", referralRoutes);
 app.use("/api/banners", bannerRoutes);
+
 app.use("/api/influencer-dashboard", influencerDashboardRoutes);
+
 app.use("/api/data", campaignDataRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/all-detail", allCampaignDataRoutes);
+
 app.use("/api/applications", applicationRoutes);
 app.use("/api/deals", dealRoutes);
+
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/chat", chatRoutes);
+
 app.use("/api/instagram", instagramRoutes);
+
 app.use("/api/admin", adminRoutes);
+
+// ============================================================
+// ERROR HANDLER
+// ============================================================
 
 app.use((err, req, res, next) => {
   console.error("Error:", err.stack);
+
   res.status(500).json({
     success: false,
     message: err.message || "Internal Server Error",
   });
 });
 
+// ============================================================
+// ENV CHECK
+// ============================================================
+
 console.log("ENV CHECK --->", process.env.RUN_SEEDER);
+
+// ============================================================
+// START SERVER
+// ============================================================
 
 const startServer = async () => {
   try {
     await sequelize.authenticate();
+
     console.log("Database connected successfully");
 
     if (process.env.DB_FORCE_SYNC === "true") {
       console.log("⚠️ DB_FORCE_SYNC=true");
       console.log("⚠️ Dropping and recreating all database tables...");
 
-      await sequelize.sync({ force: true });
+      await sequelize.sync({
+        force: true,
+      });
 
       console.log("✅ Tables recreated successfully");
     } else {
       console.log("🔄 Synchronizing database...");
 
-      await sequelize.sync({ alter: true });
+      await sequelize.sync({
+        alter: true,
+      });
 
       console.log("✅ Tables synchronized successfully");
     }
 
     if (process.env.RUN_SEEDER === "true") {
       console.log("🌱 Running seeders...");
+
       await runAllSeeders();
+
       console.log("✅ Seeders completed");
     }
 
@@ -214,15 +294,22 @@ const startServer = async () => {
 
 startServer();
 
+// ============================================================
+// GRACEFUL SHUTDOWN
+// ============================================================
+
 const shutdown = async (signal) => {
   console.log(`Received ${signal}`);
 
   try {
     await sequelize.close();
+
     console.log("DB connection closed");
+
     process.exit(0);
   } catch (err) {
     console.error("Error closing DB:", err.message);
+
     process.exit(1);
   }
 };
@@ -232,6 +319,8 @@ process.on("SIGTERM", shutdown);
 
 process.on("SIGUSR2", async () => {
   console.log("Nodemon restart...");
+
   await sequelize.close();
+
   process.kill(process.pid, "SIGUSR2");
 });
