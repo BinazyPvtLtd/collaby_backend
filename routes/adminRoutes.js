@@ -4,9 +4,6 @@ import {
   adminLogin,
   adminLogout,
   getDashboardStats,
-  listBusinesses,
-  getBusinessById,
-  deleteBusiness,
   listInfluencers,
   getInfluencerById,
   deleteInfluencer,
@@ -39,11 +36,6 @@ router.post("/logout", verifyAdminToken, adminLogout);
 
 // ================= DASHBOARD =================
 router.get("/dashboard", verifyAdminToken, getDashboardStats);
-
-// ================= BUSINESSES =================
-router.get("/businesses", verifyAdminToken, listBusinesses);
-router.get("/businesses/:id", verifyAdminToken, getBusinessById);
-router.delete("/businesses/:id", verifyAdminToken, deleteBusiness);
 
 // ================= INFLUENCERS =================
 router.get("/influencers", verifyAdminToken, listInfluencers);

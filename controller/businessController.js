@@ -118,20 +118,32 @@ const payload = {
   }
 }
 
-// ✅ GET ALL Businesses (Only Logged-in User)
+const publicBusinessAttributes = { exclude: ['refreshToken'] }
+const editableBusinessFields = ['businessName', 'mobileNumber', 'city', 'businessType', 'gstNumber']
+const positiveInteger = value => /^\d+$/.test(String(value)) && Number.isSafeInteger(Number(value)) && Number(value) > 0
+const canAccessBusiness = (req, id) => req.businessAccess.role === 'admin' || Number(req.businessAccess.id) === id
+
+// Admins list all businesses; business accounts see their own record.
 export const getAllBusinesses = async (req, res) => {
   try {
-console.log('Logged-in User ID:', req.user.userId) // Debugging line
-
-    const businesses = await BusinessRegistration.findAll({
-      // where: { business_user_id: req.user.userId },
-      where: { business_user_id: req.user.userId }
+    const { page = '1', limit = '20' } = req.query
+    if (!positiveInteger(page) || !positiveInteger(limit) || Number(limit) > 100 ||
+        !Number.isSafeInteger((Number(page) - 1) * Number(limit))) {
+      return res.status(400).json({ success: false, message: 'Invalid pagination: page must be positive and limit must be between 1 and 100' })
+    }
+    const { rows: businesses, count } = await BusinessRegistration.findAndCountAll({
+      where: req.businessAccess.role === 'admin' ? {} : { id: req.businessAccess.id },
+      attributes: publicBusinessAttributes,
+      order: [['id', 'DESC']],
+      limit: Number(limit),
+      offset: (Number(page) - 1) * Number(limit)
     })
 
     return res.status(200).json({
       success: true,
       message: 'Business User data fetched successfully!',
-      data: convertToString(businesses.map(b => b.toJSON()))
+      data: convertToString(businesses.map(b => b.toJSON())),
+      pagination: { page: Number(page), limit: Number(limit), total: count, totalPages: Math.ceil(count / Number(limit)) }
     })
   } catch (error) {
     return res.status(500).json({
@@ -146,15 +158,19 @@ export const getBusinessById = async (req, res) => {
   try {
     const id = Number(req.params.id)
 
-    if (!Number.isInteger(id)) {
+    if (!positiveInteger(req.params.id)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid business id'
       })
     }
 
+    if (!canAccessBusiness(req, id)) {
+      return res.status(403).json({ success: false, message: 'Access denied' })
+    }
     const business = await BusinessRegistration.findOne({
-      where: { id }
+      where: { id },
+      attributes: publicBusinessAttributes
     })
 
     if (!business) {
@@ -181,15 +197,23 @@ export const updateBusiness = async (req, res) => {
   try {
     const id = Number(req.params.id)
 
-    if (!Number.isInteger(id)) {
+    if (!positiveInteger(req.params.id)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid business id'
       })
     }
 
+    if (!canAccessBusiness(req, id)) {
+      return res.status(403).json({ success: false, message: 'Access denied' })
+    }
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body) ||
+        !Object.keys(req.body).length || Object.keys(req.body).some(key => !editableBusinessFields.includes(key))) {
+      return res.status(400).json({ success: false, message: `Provide only editable fields: ${editableBusinessFields.join(', ')}` })
+    }
     const business = await BusinessRegistration.findOne({
-      where: { id }
+      where: { id },
+      attributes: publicBusinessAttributes
     })
 
     if (!business) {
@@ -199,7 +223,7 @@ export const updateBusiness = async (req, res) => {
       })
     }
 
-    await business.update(req.body)
+    await business.update(req.body, { fields: editableBusinessFields })
 
     return res.status(200).json({
       success: true,
@@ -207,9 +231,16 @@ export const updateBusiness = async (req, res) => {
       data: convertToString(business.toJSON())
     })
   } catch (error) {
+    if (error instanceof ValidationError) {
+      return res.status(error.name === 'SequelizeUniqueConstraintError' ? 409 : 400).json({
+        success: false,
+        message: 'Business validation failed',
+        errors: error.errors.map(({ path, message }) => ({ field: path, message }))
+      })
+    }
     return res.status(500).json({
       success: false,
-      error: error.message
+      message: 'Unable to update business'
     })
   }
 }
@@ -220,10 +251,10 @@ export const deleteBusinessByPhone = async (req, res) => {
     const { phone } = req.params
 
     // ✅ Validate
-    if (!phone) {
+    if (!/^[6-9]\d{9}$/.test(phone || '')) {
       return res.status(400).json({
         success: false,
-        message: 'Phone number is required'
+        message: 'A valid 10-digit Indian mobile number is required'
       })
     }
 
