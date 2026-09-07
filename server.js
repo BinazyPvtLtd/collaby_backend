@@ -9,7 +9,6 @@ import http from "http";
 import { Server } from "socket.io";
 import sequelize from "./config/database.js";
 import cookieParser from "cookie-parser";
-
 import otpRoutes from "./routes/OtpRoutes.js";
 import authRoutes from "./routes/AuthRoutes.js";
 import influencerRoutes from "./routes/InfluencerRoutes.js";
@@ -42,13 +41,10 @@ import notificationRoutes from "./routes/notification.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import instagramRoutes from "./routes/instagram.routes.js";
-
 import { seedCampaignTypes } from "./seeders/seedCampaignTypes.js";
 import { runAllSeeders } from "./seeders/runAllSeeders.js";
-
 import { chatSocketAuth } from "./middleware/chatSocketAuth.js";
-import ChatSocketService from "./socket/chat.socket.js";
-
+import ChatSocketService from "./socket/chat.socket.js"; 
 import "./models/Associations.js";
 
 // ============================================================
