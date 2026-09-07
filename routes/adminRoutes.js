@@ -4,9 +4,6 @@ import {
   adminLogin,
   adminLogout,
   getDashboardStats,
-  listInfluencers,
-  getInfluencerById,
-  deleteInfluencer,
   listCampaigns,
   getCampaignById,
   updateCampaignStatus,
@@ -25,8 +22,32 @@ import {
   updateCategory,
   deleteCategory,
 } from "../controller/AdminController.js";
+import {
+  getAllInfluencers,
+  getInfluencerById,
+  updateInfluencer,
+  deleteInfluencerByPhone,
+} from "../controller/InfluencerUserController.js";
+
+import {
+  getAllBusinesses,
+  getBusinessById,
+  updateBusiness,
+  deleteBusinessByPhone,
+} from "../controller/businessController.js";
 
 const router = express.Router();
+
+// Shared business controllers use this verified access context.
+const businessAdminAccess = (req, res, next) => {
+  if (req.admin?.role !== "admin") {
+    return res
+      .status(403)
+      .json({ success: false, message: "Admin access denied" });
+  }
+  req.businessAccess = { role: "admin", id: req.admin.id };
+  next();
+};
 
 // ================= AUTH (public) =================
 router.post("/login", adminLogin);
@@ -37,10 +58,37 @@ router.post("/logout", verifyAdminToken, adminLogout);
 // ================= DASHBOARD =================
 router.get("/dashboard", verifyAdminToken, getDashboardStats);
 
+// ================= BUSINESSES =================
+router.get(
+  "/businesses",
+  verifyAdminToken,
+  businessAdminAccess,
+  getAllBusinesses,
+);
+router.get(
+  "/businesses/:id",
+  verifyAdminToken,
+  businessAdminAccess,
+  getBusinessById,
+);
+router.put(
+  "/businesses/:id",
+  verifyAdminToken,
+  businessAdminAccess,
+  updateBusiness,
+);
+router.delete(
+  "/businesses/:phone",
+  verifyAdminToken,
+  businessAdminAccess,
+  deleteBusinessByPhone,
+);
+
 // ================= INFLUENCERS =================
-router.get("/influencers", verifyAdminToken, listInfluencers);
+router.get("/influencers", verifyAdminToken, getAllInfluencers);
 router.get("/influencers/:id", verifyAdminToken, getInfluencerById);
-router.delete("/influencers/:id", verifyAdminToken, deleteInfluencer);
+router.put("/influencers/:id", verifyAdminToken, updateInfluencer);
+router.delete("/influencers/:phone", verifyAdminToken, deleteInfluencerByPhone);
 
 // ================= CAMPAIGNS =================
 router.get("/campaigns", verifyAdminToken, listCampaigns);

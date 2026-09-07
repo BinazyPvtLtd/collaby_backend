@@ -1,5 +1,4 @@
 import jwt from "jsonwebtoken";
-import Admin from "../models/Admin.js";
 import Business from "../models/Business.js";
 
 export const verifyBusinessAccess = async (req, res, next) => {
@@ -20,20 +19,7 @@ export const verifyBusinessAccess = async (req, res, next) => {
   }
 
   try {
-    if (decoded.adminId) {
-      const admin = await Admin.findByPk(decoded.adminId);
-      if (!admin) {
-        return res
-          .status(401)
-          .json({ success: false, message: "Admin not found" });
-      }
-      if (admin.status !== "active" || admin.role !== "admin") {
-        return res
-          .status(403)
-          .json({ success: false, message: "Admin access denied" });
-      }
-      req.businessAccess = { role: "admin", id: admin.id };
-    } else if (decoded.userType === "business" && decoded.userId) {
+    if (decoded.userType === "business" && decoded.userId) {
       const business = await Business.findByPk(decoded.userId, {
         attributes: ["id"],
       });
@@ -46,7 +32,7 @@ export const verifyBusinessAccess = async (req, res, next) => {
     } else {
       return res
         .status(403)
-        .json({ success: false, message: "Business or admin access required" });
+        .json({ success: false, message: "Business access required" });
     }
   } catch (error) {
     console.error("Business authentication failed:", error.message);
@@ -57,11 +43,3 @@ export const verifyBusinessAccess = async (req, res, next) => {
   return next();
 };
 
-export const requireBusinessAdmin = (req, res, next) => {
-  if (req.businessAccess?.role !== "admin") {
-    return res
-      .status(403)
-      .json({ success: false, message: "Admin access required" });
-  }
-  return next();
-};

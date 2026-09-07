@@ -1,17 +1,21 @@
-import express from 'express'
+import express from "express";
 import {
   createInfluencer,
-  getAllInfluencers,
   getInfluencerById,
   updateInfluencer,
-  deleteInfluencerByPhone
-} from '../controller/InfluencerUserController.js'
+  deleteInfluencerByPhone,
+} from "../controller/InfluencerUserController.js";
 
-const router = express.Router()
+import { verifyInfluencerAccountAccess } from "../middleware/InfluencerAccountAuthMiddleware.js";
 
-router.post('/user-create', createInfluencer)
-router.get('/', getAllInfluencers)
-router.get('/:id', getInfluencerById)
-router.put('/:id', updateInfluencer)
-router.delete('/:phone', deleteInfluencerByPhone)
-export default router
+const router = express.Router();
+
+router.post("/user-create", createInfluencer);
+router.get("/:id", verifyInfluencerAccountAccess, getInfluencerById);
+router.put("/:id", verifyInfluencerAccountAccess, updateInfluencer);
+router.delete(
+  "/:phone",
+  verifyInfluencerAccountAccess,
+  deleteInfluencerByPhone,
+);
+export default router;

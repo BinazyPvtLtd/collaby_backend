@@ -6,8 +6,6 @@ export const verifyToken = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    console.log("AUTH HEADER:", authHeader);
-
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
@@ -18,8 +16,6 @@ export const verifyToken = (req, res, next) => {
     const token = authHeader.split(" ")[1];
 
     const decoded = jwt.verify(token, JWT_SECRET);
-
-    console.log("DECODED TOKEN:", decoded);
 
     req.user = decoded; // ✅ VERY IMPORTANT
 
