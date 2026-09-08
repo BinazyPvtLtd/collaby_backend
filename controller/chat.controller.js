@@ -126,7 +126,16 @@ export const sendMessage = async (req, res) => {
     }
 
     // ============================================================
-    // 6. CREATE MESSAGE
+    // 6. DETERMINE SENDER TYPE
+    // ============================================================
+
+    const senderType =
+      user.userType === 'business'
+        ? 'brand'
+        : 'creator'
+
+    // ============================================================
+    // 7. CREATE MESSAGE
     // ============================================================
 
     const message = await ChatMessage.create({
@@ -134,7 +143,7 @@ export const sendMessage = async (req, res) => {
 
       senderId: Number(user.userId),
 
-      senderType: user.userType === 'business' ? 'brand' : 'creator',
+      senderType,
 
       messageType,
 
@@ -151,14 +160,18 @@ export const sendMessage = async (req, res) => {
       readAt: null
     })
 
+    // ============================================================
+    // 8. UPDATE CHAT ROOM
+    // ============================================================
+
     const roomUpdate = {
       lastMessageId: message.id,
       lastMessageAt: message.createdAt
     }
 
-    // ============================================================
-    // UNARCHIVE CHAT FOR RECEIVER WHEN NEW MESSAGE ARRIVES
-    // ============================================================
+    // ------------------------------------------------------------
+    // Unarchive receiver's side when new message arrives
+    // ------------------------------------------------------------
 
     if (senderType === 'brand') {
       roomUpdate.creatorArchivedAt = null
@@ -167,40 +180,211 @@ export const sendMessage = async (req, res) => {
     if (senderType === 'creator') {
       roomUpdate.brandArchivedAt = null
     }
-    // ============================================================
-    // 7. UPDATE CHAT ROOM
-    // ============================================================
 
     await access.room.update(roomUpdate)
 
     // ============================================================
-    // 8. SOCKET EVENT
+    // 9. FIND RECEIVER
+    // ============================================================
+
+    let receiverId
+    let receiverUserType
+
+    if (senderType === 'brand') {
+      // Business sent message
+      // Receiver = creator/influencer
+
+      receiverId = access.room.creatorId
+      receiverUserType = 'influencer'
+    } else {
+      // Creator sent message
+      // Receiver = business/brand
+
+      receiverId = access.room.brandId
+      receiverUserType = 'business'
+    }
+
+    console.log('🔔 CHAT NOTIFICATION')
+    console.log('Room ID:', roomId)
+    console.log('Sender:', user.userId, user.userType)
+    console.log('Receiver:', receiverId, receiverUserType)
+
+    // ============================================================
+    // 10. SOCKET.IO
     // ============================================================
 
     const io = req.app.get('io')
 
     if (io) {
+      // ----------------------------------------------------------
+      // Send message to users inside chat room
+      // ----------------------------------------------------------
+
       io.to(`chat:${roomId}`).emit('chat:message', {
         roomId: Number(roomId),
         message: message.toJSON()
       })
 
-      console.log(`📨 chat:message emitted to chat:${roomId}`)
+      console.log(
+        `📨 chat:message emitted to chat:${roomId}`
+      )
+
+      // ----------------------------------------------------------
+      // Send notification drop to receiver
+      // ----------------------------------------------------------
+
+      if (receiverId) {
+        io.to(
+          `user:${receiverUserType}:${receiverId}`
+        ).emit('notification:new', {
+          type: 'chat_message',
+
+          title: 'New Message',
+
+          message:
+            content?.trim() ||
+            `You received a new ${messageType} message`,
+
+          roomId: Number(roomId),
+
+          messageId: message.id,
+
+          senderId: Number(user.userId),
+
+          senderType: user.userType,
+
+          isRead: false,
+
+          createdAt: message.createdAt
+        })
+
+        console.log(
+          `🔔 notification:new emitted to user:${receiverUserType}:${receiverId}`
+        )
+      }
     } else {
       console.log('❌ Socket.IO instance not found')
     }
 
     // ============================================================
-    // 9. RESPONSE
+    // 11. CREATE DATABASE NOTIFICATION
+    // ============================================================
+
+    if (receiverId) {
+      try {
+        const notification = await Notification.create({
+          userId: Number(receiverId),
+
+          userType: receiverUserType,
+
+          type: 'chat_message',
+
+          title: 'New Message',
+
+          message:
+            content?.trim() ||
+            `You received a new ${messageType} message`,
+
+          referenceId: Number(roomId),
+
+          referenceType: 'chat',
+
+          isRead: false
+        })
+
+        console.log(
+          '✅ Chat notification created:',
+          notification.id
+        )
+
+      } catch (notificationError) {
+        console.error(
+          '❌ Failed to create chat notification:',
+          notificationError
+        )
+      }
+    }
+
+    // ============================================================
+    // 12. SEND FCM PUSH NOTIFICATION
+    // ============================================================
+
+    if (receiverId) {
+      try {
+        const deviceTokens = await DeviceToken.findAll({
+          where: {
+            userId: Number(receiverId),
+
+            userType: receiverUserType,
+
+            isActive: true
+          }
+        })
+
+        const tokens = deviceTokens
+          .map(device => device.fcmToken)
+          .filter(Boolean)
+
+        console.log(
+          `📱 FCM tokens found: ${tokens.length}`
+        )
+
+        if (tokens.length > 0) {
+          await admin.messaging().sendEachForMulticast({
+            tokens,
+
+            notification: {
+              title: 'New Message',
+
+              body:
+                content?.trim() ||
+                `You received a new ${messageType} message`
+            },
+
+            data: {
+              type: 'chat_message',
+
+              roomId: String(roomId),
+
+              messageId: String(message.id),
+
+              senderId: String(user.userId),
+
+              senderType: String(user.userType)
+            }
+          })
+
+          console.log(
+            `✅ FCM notification sent to ${tokens.length} device(s)`
+          )
+        } else {
+          console.log(
+            '⚠️ No active FCM tokens found for receiver'
+          )
+        }
+
+      } catch (fcmError) {
+        console.error(
+          '❌ FCM notification failed:',
+          fcmError
+        )
+      }
+    }
+
+    // ============================================================
+    // 13. RESPONSE
     // ============================================================
 
     return res.status(201).json({
       success: true,
+
       message: 'Message sent successfully',
+
       data: {
         message: message.toJSON()
       }
     })
+
   } catch (error) {
     console.error('sendMessage error:', error)
 
@@ -210,7 +394,6 @@ export const sendMessage = async (req, res) => {
     })
   }
 }
-
 
 export const markMessageRead = async (req, res) => {
   try {
