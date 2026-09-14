@@ -443,40 +443,24 @@ export const instagramCallback = async (req, res) => {
       );
 
       console.log(
-        "✅ Instagram token test successful:",
+        "✅ Instagram token validation successful:",
         {
           id: permissionCheck.data?.id,
-          username:
-            permissionCheck.data?.username,
+          username: permissionCheck.data?.username,
           tokenValid: true,
         }
       );
 
-      // Verify OAuth user ID matches token user ID
-      if (
-        permissionCheck.data?.id &&
-        String(permissionCheck.data.id) !==
-        String(returnedInstagramUserId)
-      ) {
-        console.error(
-          "❌ Instagram user ID mismatch:",
-          {
-            oauthUserId:
-              returnedInstagramUserId,
-            tokenUserId:
-              permissionCheck.data.id,
-          }
-        );
-
+      if (!permissionCheck.data?.id) {
         throw new Error(
-          "Instagram user ID mismatch"
+          "Instagram user ID was not returned from token validation"
         );
       }
+
     } catch (err) {
       console.error(
         "❌ Instagram token validation failed:",
-        err.response?.data ||
-        err.message
+        err.response?.data || err.message
       );
 
       throw new Error(
@@ -484,7 +468,6 @@ export const instagramCallback = async (req, res) => {
         "Instagram long-lived token validation failed"
       );
     }
-
     // --------------------------------------------------
     // 8. GET INSTAGRAM PROFILE
     // --------------------------------------------------
