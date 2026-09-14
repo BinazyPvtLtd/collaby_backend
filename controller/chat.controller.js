@@ -494,7 +494,6 @@ export const markMessageRead = async (req, res) => {
   }
 }
 
-
 export const markAllMessagesRead = async (req, res) => {
   try {
     const { roomId } = req.params
@@ -586,14 +585,12 @@ export const markAllMessagesRead = async (req, res) => {
 export const getChats = async (req, res) => {
   try {
     const user = req.user
-
     if (!user) {
       return res.status(401).json({
         success: false,
         message: 'Unauthorized'
       })
     }
-
     const userId = Number(user.userId)
     const userType = user.userType
 
@@ -757,17 +754,34 @@ export const getChats = async (req, res) => {
         // --------------------------------------------------------
 
         if (userType === 'business') {
+          console.log('======================================')
+          console.log('BUSINESS PARTICIPANT DEBUG')
+          console.log('ROOM ID:', room.id)
+          console.log('ROOM CREATOR ID:', room.creatorId)
+
           const creator = await InfluencerUser.findByPk(room.creatorId)
+
+          console.log(
+            'FOUND CREATOR:',
+            creator
+              ? {
+                id: creator.id,
+                name: creator.name,
+                firstName: creator.firstName,
+                lastName: creator.lastName,
+                profileImage: creator.profileImage,
+                profilePicture: creator.profilePicture
+              }
+              : null
+          )
 
           if (creator) {
             participant = {
               id: creator.id,
-
               name:
                 creator.name ||
                 `${creator.firstName || ''} ${creator.lastName || ''}`.trim() ||
                 null,
-
               image:
                 creator.profileImage ||
                 creator.profilePicture ||
@@ -775,8 +789,11 @@ export const getChats = async (req, res) => {
                 null
             }
           }
-        }
 
+          console.log('FINAL PARTICIPANT:', participant)
+          console.log('======================================')
+        }
+        
         // --------------------------------------------------------
         // INFLUENCER -> BUSINESS DETAILS
         // --------------------------------------------------------
