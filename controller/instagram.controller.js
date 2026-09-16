@@ -515,6 +515,13 @@ export const instagramCallback = async (req, res) => {
     // 9. VERIFY USER ID CONSISTENCY
     // --------------------------------------------------
 
+    console.log("🔍 INSTAGRAM ID DEBUG:", {
+      oauthUserId: String(returnedInstagramUserId),
+      profileUserId: String(profile.id),
+      oauthUserIdType: typeof returnedInstagramUserId,
+      profileUserIdType: typeof profile.id,
+    });
+
     if (
       String(returnedInstagramUserId) !==
       instagramUserId
