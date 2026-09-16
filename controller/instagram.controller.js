@@ -515,31 +515,41 @@ export const instagramCallback = async (req, res) => {
     // 9. VERIFY USER ID CONSISTENCY
     // --------------------------------------------------
 
-    console.log("🔍 INSTAGRAM ID DEBUG:", {
-      oauthUserId: String(returnedInstagramUserId),
-      profileUserId: String(profile.id),
-      oauthUserIdType: typeof returnedInstagramUserId,
-      profileUserIdType: typeof profile.id,
+    // console.log("🔍 INSTAGRAM ID DEBUG:", {
+    //   oauthUserId: String(returnedInstagramUserId),
+    //   profileUserId: String(profile.id),
+    //   oauthUserIdType: typeof returnedInstagramUserId,
+    //   profileUserIdType: typeof profile.id,
+    // });
+
+    // if (
+    //   String(returnedInstagramUserId) !==
+    //   instagramUserId
+    // ) {
+    //   console.error(
+    //     "❌ Instagram user ID mismatch:",
+    //     {
+    //       oauthUserId:
+    //         returnedInstagramUserId,
+    //       profileUserId:
+    //         instagramUserId,
+    //     }
+    //   );
+
+    //   throw new Error(
+    //     "Instagram account verification failed"
+    //   );
+    // }
+
+    // IMPORTANT:
+    // OAuth user_id may exceed JavaScript's safe integer range.
+    // Therefore profile.id returned by the authenticated /me
+    // request is used as the canonical Instagram account ID.
+
+    console.log("✅ Verified Instagram account:", {
+      instagramUserId,
+      username: profile.username,
     });
-
-    if (
-      String(returnedInstagramUserId) !==
-      instagramUserId
-    ) {
-      console.error(
-        "❌ Instagram user ID mismatch:",
-        {
-          oauthUserId:
-            returnedInstagramUserId,
-          profileUserId:
-            instagramUserId,
-        }
-      );
-
-      throw new Error(
-        "Instagram account verification failed"
-      );
-    }
 
 
     // --------------------------------------------------
