@@ -9,6 +9,7 @@ const sequelize = new Sequelize(
   process.env.DB_PASSWORD,
   {
     host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT || 5432),
     dialect: "postgres",
 
     // Log every SQL query
@@ -24,7 +25,7 @@ const sequelize = new Sequelize(
       acquire: 30000,
       idle: 10000,
     },
-  }
+  },
 );
 
 export const connectDB = async () => {

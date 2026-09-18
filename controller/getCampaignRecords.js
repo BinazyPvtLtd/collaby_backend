@@ -7,7 +7,7 @@ export const getBusinessHackData = async (req, res) => {
   try {
     const userId = req.user?.userId;
     console.log("REQ.USER:", req.user);
-    if (!userId) {
+    if (!userId || req.user.userType !== "business") {
       return res.status(401).json({
         success: false,
         message: "Unauthorized",

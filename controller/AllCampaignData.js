@@ -22,6 +22,7 @@ export const getAllBusinessHackData = async (req, res) => {
     }
     // ✅ Fetch ALL hacks without any condition
     const hacks = await BusinessHack.findAll({
+      where: { campaignStatus: 'Live', applicationDeadline: { [Op.gt]: new Date() } },
       order: [['id', 'DESC']],
       raw: true
     })

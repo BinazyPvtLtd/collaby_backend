@@ -8,7 +8,7 @@ import {
   withdrawApplication,
   getCampaignApplicants,
   getApplicationsByInfluencer,
-} from "../controller/ApplicationController.js";
+} from "../controller/applicationWorkflow.controller.js";
 import { verifyToken } from "../middleware/AuthMiddleware.js";
 
 const router = express.Router();
@@ -24,6 +24,5 @@ router.get(
   "/campaign/:campaignId/applicants",
   verifyToken,
   getCampaignApplicants,
-  getApplicationsByInfluencer,
 );
 export default router;

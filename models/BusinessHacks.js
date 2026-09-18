@@ -1,10 +1,14 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/database.js";
 import xss from "xss";
+import { CAMPAIGN_STATUSES } from "../services/campaignPolicy.js";
 
 const BusinessHack = sequelize.define(
   "BusinessHack",
   {
+    campaignStatus: { type: DataTypes.STRING(32), allowNull: false, defaultValue: "Draft", validate: { isIn: [CAMPAIGN_STATUSES] } },
+    applicationDeadline: { type: DataTypes.DATE, allowNull: true },
+    suspendedFrom: { type: DataTypes.STRING(32), allowNull: true },
     user_id: {
       type: DataTypes.INTEGER,
       allowNull: false,

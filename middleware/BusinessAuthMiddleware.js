@@ -29,6 +29,7 @@ export const verifyBusinessAccess = async (req, res, next) => {
           .json({ success: false, message: "Business account not found" });
       }
       req.businessAccess = { role: "business", id: business.id };
+      req.user = { ...decoded, userId: business.id, userType: "business" };
     } else {
       return res
         .status(403)
@@ -42,4 +43,3 @@ export const verifyBusinessAccess = async (req, res, next) => {
   }
   return next();
 };
-

@@ -1,4 +1,5 @@
 import Admin from "../models/Admin.js";
+import { ADMIN_CAMPAIGN_PERMISSIONS } from "../services/campaignPolicy.js";
 
 const seedAdmin = async () => {
   try {
@@ -18,6 +19,7 @@ const seedAdmin = async () => {
       password: process.env.ADMIN_PASSWORD || "Admin@1234",
       role: "admin",
       status: "active",
+      permissions: ADMIN_CAMPAIGN_PERMISSIONS,
     });
 
     console.log(`Default admin created (${email})`);

@@ -44,15 +44,16 @@ import instagramRoutes from "./routes/instagram.routes.js";
 import { seedCampaignTypes } from "./seeders/seedCampaignTypes.js";
 import { runAllSeeders } from "./seeders/runAllSeeders.js";
 import { chatSocketAuth } from "./middleware/chatSocketAuth.js";
-import ChatSocketService from "./socket/chat.socket.js"; 
+import ChatSocketService from "./socket/chat.socket.js";
 import "./models/Associations.js";
+import { startCampaignDeadlineWorker } from "./services/campaignDeadline.service.js";
 
 // ============================================================
 // EXPRESS APP
 // ============================================================
 
 const app = express();
-app.set('trust proxy', 1)
+app.set("trust proxy", 1);
 
 // ============================================================
 // MIDDLEWARE
@@ -230,29 +231,21 @@ console.log("ENV CHECK --->", process.env.RUN_SEEDER);
 // START SERVER
 // ============================================================
 
+let stopCampaignDeadlineWorker;
 const startServer = async () => {
   try {
     await sequelize.authenticate();
 
     console.log("Database connected successfully");
 
-    if (process.env.DB_FORCE_SYNC === "true") {
-      console.log("⚠️ DB_FORCE_SYNC=true");
-      console.log("⚠️ Dropping and recreating all database tables...");
-
-      await sequelize.sync({
-        force: true,
-      });
-
-      console.log("✅ Tables recreated successfully");
-    } else {
-      console.log("🔄 Synchronizing database...");
-
-      await sequelize.sync({
-        alter: true,
-      });
-
-      console.log("✅ Tables synchronized successfully");
+    // Apply reviewed migrations before startup; never alter or drop production tables here.
+    const schema = await sequelize
+      .getQueryInterface()
+      .describeTable("business_hacks");
+    if (!schema.campaignStatus || !schema.applicationDeadline) {
+      throw new Error(
+        "Campaign workflow migration required: run npm run migrate:campaign-workflow before starting the server",
+      );
     }
 
     if (process.env.RUN_SEEDER === "true") {
@@ -263,6 +256,7 @@ const startServer = async () => {
       console.log("✅ Seeders completed");
     }
 
+    stopCampaignDeadlineWorker = startCampaignDeadlineWorker();
     const PORT = process.env.PORT || 5000;
 
     server.listen(PORT, "0.0.0.0", () => {
@@ -298,6 +292,7 @@ const shutdown = async (signal) => {
   console.log(`Received ${signal}`);
 
   try {
+    stopCampaignDeadlineWorker?.();
     await sequelize.close();
 
     console.log("DB connection closed");

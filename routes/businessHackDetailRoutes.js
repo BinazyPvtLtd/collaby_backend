@@ -1,19 +1,17 @@
 import express from "express";
 import {
-  createBusinessHackDetail,
   getAllBusinessHackDetails,
   getBusinessHackDetailById,
-  updateBusinessHackDetail,
-  deleteBusinessHackDetail,
 } from "../controller/businessHackDetailController.js";
-import { verifyToken } from "../middleware/AuthMiddleware.js";
+import { verifyBusinessAccess } from "../middleware/BusinessAuthMiddleware.js";
+import { mutateStep } from "../controller/campaignWorkflow.controller.js";
 
 const router = express.Router();
 
-router.post("/create", verifyToken, createBusinessHackDetail);
-router.get("/", verifyToken, getAllBusinessHackDetails);
-router.get("/:id", verifyToken, getBusinessHackDetailById);
-router.put("/:id", verifyToken, updateBusinessHackDetail);
-router.delete("/:id", verifyToken, deleteBusinessHackDetail);
+router.post("/create", verifyBusinessAccess, mutateStep(2, "create"));
+router.get("/", verifyBusinessAccess, getAllBusinessHackDetails);
+router.get("/:id", verifyBusinessAccess, getBusinessHackDetailById);
+router.put("/:id", verifyBusinessAccess, mutateStep(2, "update"));
+router.delete("/:id", verifyBusinessAccess, mutateStep(2, "delete"));
 
 export default router;
