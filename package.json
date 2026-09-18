@@ -10,7 +10,7 @@
     "test:campaign-workflow": "node --experimental-test-module-mocks --test tests/campaign-*.test.js",
     "migrate:campaign-workflow": "node migrations/migrateCampaignWorkflow.js",
     "start": "node server.js",
-    "dev": "npm run migrate:campaign-workflow && node server.js"
+    "dev": "node server.js"
   },
   "repository": {
     "type": "git",

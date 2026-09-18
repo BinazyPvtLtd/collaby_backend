@@ -47,6 +47,7 @@ import { chatSocketAuth } from "./middleware/chatSocketAuth.js";
 import ChatSocketService from "./socket/chat.socket.js";
 import "./models/Associations.js";
 import { startCampaignDeadlineWorker } from "./services/campaignDeadline.service.js";
+import { ensureCampaignWorkflow } from "./migrations/ensureCampaignWorkflow.js";
 
 // ============================================================
 // EXPRESS APP
@@ -238,13 +239,15 @@ const startServer = async () => {
 
     console.log("Database connected successfully");
 
-    // Apply reviewed migrations before startup; never alter or drop production tables here.
+    // Apply the targeted migration before seeders, workers, or incoming requests.
+    await ensureCampaignWorkflow(sequelize);
+
     const schema = await sequelize
       .getQueryInterface()
       .describeTable("business_hacks");
     if (!schema.campaignStatus || !schema.applicationDeadline) {
       throw new Error(
-        "Campaign workflow migration required: run npm run migrate:campaign-workflow before starting the server",
+        "Campaign workflow schema is incomplete after migration; check the database migration history",
       );
     }
 
