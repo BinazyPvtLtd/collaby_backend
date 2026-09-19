@@ -4,6 +4,8 @@ import {
     createOrder
 } from '../services/razorpay.service.js'
 
+// Create campaign payment order
+
 export const createCampaignPaymentOrder = async (req, res) => {
     try {
         const user = req.user
@@ -116,7 +118,7 @@ export const createCampaignPaymentOrder = async (req, res) => {
     }
 }
 
-
+// Verify payment
 export const verifyCampaignPayment = async (
     req,
     res
@@ -205,6 +207,7 @@ export const verifyCampaignPayment = async (
     }
 }
 
+// Release escrow to creator
 export const releaseEscrow = async (req, res) => {
     try {
         const user = req.user
@@ -328,6 +331,7 @@ export const releaseEscrow = async (req, res) => {
     }
 }
 
+// Refund API
 export const refundCampaignPayment = async (
     req,
     res
@@ -438,6 +442,7 @@ export const refundCampaignPayment = async (
     }
 }
 
+// Dispute API
 export const createPaymentDispute = async (
     req,
     res
@@ -513,6 +518,236 @@ export const createPaymentDispute = async (
         return res.status(500).json({
             success: false,
             message: 'Unable to create dispute'
+        })
+    }
+}
+
+// Escrow status API
+export const getEscrowStatus = async (
+    req,
+    res
+) => {
+    try {
+        const payment =
+            await CampaignPayment.findByPk(
+                Number(req.params.paymentId)
+            )
+
+        if (!payment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Payment not found'
+            })
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                id: payment.id,
+                campaignId:
+                    payment.campaignId,
+
+                amount:
+                    payment.amount,
+
+                creatorAmount:
+                    payment.creatorAmount,
+
+                platformFee:
+                    payment.platformFee,
+
+                status:
+                    payment.status,
+
+                razorpayOrderId:
+                    payment.razorpayOrderId,
+
+                razorpayPaymentId:
+                    payment.razorpayPaymentId,
+
+                razorpayTransferId:
+                    payment.razorpayTransferId,
+
+                escrowLockedAt:
+                    payment.escrowLockedAt,
+
+                completionVerifiedAt:
+                    payment.completionVerifiedAt,
+
+                releasedAt:
+                    payment.releasedAt,
+
+                refundedAt:
+                    payment.refundedAt
+            }
+        })
+    } catch (error) {
+        console.error(
+            'getEscrowStatus:',
+            error
+        )
+
+        return res.status(500).json({
+            success: false,
+            message: 'Unable to fetch escrow status'
+        })
+    }
+}
+
+// Razorpay webhook
+export const razorpayWebhook = async (
+    req,
+    res
+) => {
+    try {
+        const signature =
+            req.headers['x-razorpay-signature']
+
+        if (!signature) {
+            return res.status(400).json({
+                success: false,
+                message: 'Webhook signature missing'
+            })
+        }
+
+        const rawBody =
+            req.rawBody
+
+        const valid =
+            verifyWebhookSignature(
+                rawBody,
+                signature
+            )
+
+        if (!valid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid webhook signature'
+            })
+        }
+
+        const event = JSON.parse(
+            rawBody.toString()
+        )
+
+        console.log(
+            'Razorpay webhook:',
+            event.event
+        )
+
+        switch (event.event) {
+
+            case 'order.paid': {
+                const order =
+                    event.payload?.order?.entity
+
+                if (!order?.id) break
+
+                const payment =
+                    await CampaignPayment.findOne({
+                        where: {
+                            razorpayOrderId: order.id
+                        }
+                    })
+
+                if (payment) {
+                    await payment.update({
+                        status: 'CAPTURED'
+                    })
+                }
+
+                break
+            }
+
+            case 'payment.captured': {
+                const razorpayPayment =
+                    event.payload?.payment?.entity
+
+                if (!razorpayPayment?.id) break
+
+                const payment =
+                    await CampaignPayment.findOne({
+                        where: {
+                            razorpayPaymentId:
+                                razorpayPayment.id
+                        }
+                    })
+
+                if (payment) {
+                    await payment.update({
+                        status: 'ESCROW_LOCKED',
+                        escrowLockedAt:
+                            payment.escrowLockedAt ||
+                            new Date()
+                    })
+                }
+
+                break
+            }
+
+            case 'transfer.processed': {
+                const transfer =
+                    event.payload?.transfer?.entity
+
+                const payment =
+                    await CampaignPayment.findOne({
+                        where: {
+                            razorpayTransferId:
+                                transfer?.id
+                        }
+                    })
+
+                if (payment) {
+                    await payment.update({
+                        status: 'RELEASED',
+                        releasedAt:
+                            new Date()
+                    })
+                }
+
+                break
+            }
+
+            case 'payment.failed': {
+                const failedPayment =
+                    event.payload?.payment?.entity
+
+                if (!failedPayment?.order_id) break
+
+                const payment =
+                    await CampaignPayment.findOne({
+                        where: {
+                            razorpayOrderId:
+                                failedPayment.order_id
+                        }
+                    })
+
+                if (payment) {
+                    await payment.update({
+                        status: 'FAILED'
+                    })
+                }
+
+                break
+            }
+
+            default:
+                console.log(
+                    `Unhandled Razorpay event: ${event.event}`
+                )
+        }
+
+        return res.status(200).json({
+            success: true
+        })
+    } catch (error) {
+        console.error(
+            'razorpayWebhook:',
+            error
+        )
+
+        return res.status(500).json({
+            success: false
         })
     }
 }

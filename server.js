@@ -48,6 +48,7 @@ import ChatSocketService from "./socket/chat.socket.js";
 import "./models/Associations.js";
 import { startCampaignDeadlineWorker } from "./services/campaignDeadline.service.js";
 import { ensureCampaignWorkflow } from "./migrations/ensureCampaignWorkflow.js";
+import campaignPaymentRoutes from './routes/campaignPayment.routes.js'
 
 // ============================================================
 // EXPRESS APP
@@ -209,6 +210,10 @@ app.use("/api/instagram", instagramRoutes);
 
 app.use("/api/admin", adminRoutes);
 
+app.use(
+  '/api/payments',
+  campaignPaymentRoutes
+)
 // ============================================================
 // ERROR HANDLER
 // ============================================================
