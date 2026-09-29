@@ -6,14 +6,11 @@ import {
     releaseEscrow,
     refundCampaignPayment,
     createPaymentDispute,
-    getEscrowStatus
-} from '../controllers/campaignPayment.controller.js'
-
-import {
+    getEscrowStatus,
     razorpayWebhook
-} from '../controllers/razorpayWebhook.controller.js'
+} from '../controller/campaignPayment.controller.js'
 
-import verifyToken from '../middleware/verifyToken.js'
+import { verifyToken } from '../middleware/AuthMiddleware.js'
 
 const router = express.Router()
 
