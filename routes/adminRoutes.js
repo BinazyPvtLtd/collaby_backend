@@ -1,7 +1,20 @@
 import express from "express";
 import { verifyAdminToken } from "../middleware/AdminAuthMiddleware.js";
-import { listCampaigns as workflowList, getCampaign as workflowGet, changeStatus, updateDraft, removeCampaign, getAudit, mutateStep, resolveObligations, requireAdminPermission } from "../controller/campaignWorkflow.controller.js";
-import { listAllApplications, supportApplicationDecision } from "../controller/applicationWorkflow.controller.js";
+import {
+  listCampaigns as workflowList,
+  getCampaign as workflowGet,
+  changeStatus,
+  updateDraft,
+  removeCampaign,
+  getAudit,
+  mutateStep,
+  resolveObligations,
+  requireAdminPermission,
+} from "../controller/campaignWorkflow.controller.js";
+import {
+  listAllApplications,
+  supportApplicationDecision,
+} from "../controller/applicationWorkflow.controller.js";
 import uploadStep4 from "../middleware/uploadStep4.js";
 import {
   adminLogin,
@@ -53,7 +66,14 @@ router.post("/login", adminLogin);
 router.post("/logout", verifyAdminToken, adminLogout);
 
 // ================= DASHBOARD =================
-router.get("/dashboard", verifyAdminToken, requireAdminPermission("campaign:read:any"), requireAdminPermission("application:read:any"), requireAdminPermission("deal:read:any"), getDashboardStats);
+router.get(
+  "/dashboard",
+  verifyAdminToken,
+  requireAdminPermission("campaign:read:any"),
+  requireAdminPermission("application:read:any"),
+  requireAdminPermission("deal:read:any"),
+  getDashboardStats,
+);
 
 // ================= BUSINESSES =================
 router.get(
@@ -99,10 +119,28 @@ router.get("/campaigns/:id/audit", verifyAdminToken, getAudit("basic"));
 router.get("/business-campaigns", verifyAdminToken, workflowList("multi"));
 router.get("/business-campaigns/:id", verifyAdminToken, workflowGet("multi"));
 router.put("/business-campaigns/:id", verifyAdminToken, updateDraft("multi"));
-router.patch("/business-campaigns/:id/status", verifyAdminToken, changeStatus("multi"));
-router.delete("/business-campaigns/:id", verifyAdminToken, removeCampaign("multi"));
-router.get("/business-campaigns/:id/audit", verifyAdminToken, getAudit("multi"));
-router.put("/business-campaigns/:campaignId/steps/:step", verifyAdminToken, requireAdminPermission("campaign:support-edit"), uploadStep4, mutateStep(null, "update"));
+router.patch(
+  "/business-campaigns/:id/status",
+  verifyAdminToken,
+  changeStatus("multi"),
+);
+router.delete(
+  "/business-campaigns/:id",
+  verifyAdminToken,
+  removeCampaign("multi"),
+);
+router.get(
+  "/business-campaigns/:id/audit",
+  verifyAdminToken,
+  getAudit("multi"),
+);
+router.put(
+  "/business-campaigns/:campaignId/steps/:step",
+  verifyAdminToken,
+  requireAdminPermission("campaign:support-edit"),
+  uploadStep4,
+  mutateStep(null, "update"),
+);
 
 // ================= APPLICATIONS =================
 router.get("/applications", verifyAdminToken, listAllApplications);
@@ -113,9 +151,23 @@ router.patch(
 );
 
 // ================= DEALS =================
-router.get("/deals", verifyAdminToken, requireAdminPermission("deal:read:any"), listDeals);
-router.get("/deals/:id", verifyAdminToken, requireAdminPermission("deal:read:any"), getDealById);
-router.post("/deals/:id/resolve-obligations", verifyAdminToken, resolveObligations);
+router.get(
+  "/deals",
+  verifyAdminToken,
+  requireAdminPermission("deal:read:any"),
+  listDeals,
+);
+router.get(
+  "/deals/:id",
+  verifyAdminToken,
+  requireAdminPermission("deal:read:any"),
+  getDealById,
+);
+router.post(
+  "/deals/:id/resolve-obligations",
+  verifyAdminToken,
+  resolveObligations,
+);
 
 // ================= BANNERS =================
 router.get("/banners", verifyAdminToken, listBanners);
