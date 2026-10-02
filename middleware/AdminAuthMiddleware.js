@@ -1,6 +1,8 @@
 import jwt from "jsonwebtoken";
 import Admin from "../models/Admin.js";
 
+const JWT_SECRET = process.env.JWT_SECRET || "yourSecretKey";
+
 export const verifyAdminToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -14,7 +16,7 @@ export const verifyAdminToken = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
 
     if (!decoded.adminId) {
       return res.status(401).json({
@@ -44,7 +46,6 @@ export const verifyAdminToken = async (req, res, next) => {
       name: admin.name,
       email: admin.email,
       role: admin.role,
-      permissions: admin.permissions || [],
     };
 
     next();

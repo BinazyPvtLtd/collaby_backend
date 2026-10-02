@@ -8,7 +8,7 @@ import {
   startReview,
   approveWork,
   rejectWork,
-} from "../controller/dealWorkflow.controller.js";
+} from "../controller/DealController.js";
 
 const router = express.Router();
 

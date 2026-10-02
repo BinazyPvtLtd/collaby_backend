@@ -1,5 +1,4 @@
 import Banner from "../models/Banner.js";
-import { Op } from "sequelize";
 import InfluencerUser from "../models/InfluencerUser.js";
 import BusinessRegistration from "../models/Business.js";
 import Referral from "../models/Referral.js";
@@ -58,7 +57,6 @@ export const getInfluencerDashboard = async (req, res) => {
       }),
 
       BusinessHack.findAll({
-        where: { campaignStatus: "Live", applicationDeadline: { [Op.gt]: new Date() } },
         order: [["id", "DESC"]],
         raw: true,
       }),

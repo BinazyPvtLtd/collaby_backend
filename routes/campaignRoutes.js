@@ -1,18 +1,19 @@
-import express from "express";
 import { verifyBusinessAccess } from "../middleware/BusinessAuthMiddleware.js";
-import { verifyToken } from "../middleware/AuthMiddleware.js";
-import { listCampaigns, getCampaign, updateDraft, changeStatus, removeCampaign } from "../controller/campaignWorkflow.controller.js";
+import express from "express";
 import {
   createCampaign,
+  getAllCampaigns,
+  getCampaignById,
+  updateCampaign,
+  deleteCampaign,
 } from "../controller/campaignController.js";
 
 const router = express.Router();
 
 router.post("/create", verifyBusinessAccess, createCampaign);
-router.get("/", verifyToken, listCampaigns("basic"));
-router.get("/:id", verifyToken, getCampaign("basic"));
-router.put("/:id", verifyBusinessAccess, updateDraft("basic"));
-router.patch("/:id/status", verifyBusinessAccess, changeStatus("basic"));
-router.delete("/:id", verifyBusinessAccess, removeCampaign("basic"));
+router.get("/", getAllCampaigns);
+router.get("/:id", getCampaignById);
+router.put("/:id", updateCampaign);
+router.delete("/:id", deleteCampaign);
 
 export default router;

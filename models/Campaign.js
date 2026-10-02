@@ -1,12 +1,10 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/database.js";
 import xss from "xss";
-import { CAMPAIGN_STATUSES } from "../services/campaignPolicy.js";
 
 const Campaign = sequelize.define(
   "Campaign",
   {
-    suspendedFrom: { type: DataTypes.STRING(32), allowNull: true },
     title: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -119,8 +117,7 @@ user_id: {
     },
 
     campaignStatus: {
-      type: DataTypes.STRING(32),
-      validate: { isIn: [CAMPAIGN_STATUSES] },
+      type: DataTypes.ENUM("Draft", "Live", "Closed", "Completed"),
       allowNull: false,
       defaultValue: "Draft",
     },
@@ -174,7 +171,7 @@ function sanitizeCampaign(data) {
 // 🔐 Business Logic Validation
 function validateLogic(data) {
   // deadline should not be in past
-  if ((data.isNewRecord || data.changed("deadline")) && data.deadline && new Date(data.deadline) < new Date()) {
+  if (data.deadline && new Date(data.deadline) < new Date()) {
     throw new Error("Deadline cannot be in the past");
   }
 

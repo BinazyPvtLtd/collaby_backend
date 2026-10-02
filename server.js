@@ -46,9 +46,7 @@ import { runAllSeeders } from "./seeders/runAllSeeders.js";
 import { chatSocketAuth } from "./middleware/chatSocketAuth.js";
 import ChatSocketService from "./socket/chat.socket.js";
 import "./models/Associations.js";
-import { startCampaignDeadlineWorker } from "./services/campaignDeadline.service.js";
-import { ensureCampaignWorkflow } from "./migrations/ensureCampaignWorkflow.js";
-import campaignPaymentRoutes from './routes/campaignPayment.routes.js'
+import campaignPaymentRoutes from "./routes/campaignPayment.routes.js";
 
 // ============================================================
 // EXPRESS APP
@@ -210,10 +208,7 @@ app.use("/api/instagram", instagramRoutes);
 
 app.use("/api/admin", adminRoutes);
 
-app.use(
-  '/api/payments',
-  campaignPaymentRoutes
-)
+app.use("/api/payments", campaignPaymentRoutes);
 // ============================================================
 // ERROR HANDLER
 // ============================================================
@@ -237,24 +232,15 @@ console.log("ENV CHECK --->", process.env.RUN_SEEDER);
 // START SERVER
 // ============================================================
 
-let stopCampaignDeadlineWorker;
 const startServer = async () => {
   try {
     await sequelize.authenticate();
 
     console.log("Database connected successfully");
 
-    // Apply the targeted migration before seeders, workers, or incoming requests.
-    await ensureCampaignWorkflow(sequelize);
-
-    const schema = await sequelize
-      .getQueryInterface()
-      .describeTable("business_hacks");
-    if (!schema.campaignStatus || !schema.applicationDeadline) {
-      throw new Error(
-        "Campaign workflow schema is incomplete after migration; check the database migration history",
-      );
-    }
+    // Keep any previously migrated columns and audit history intact on rollback.
+    // Create missing tables without altering or dropping existing database data.
+    await sequelize.sync();
 
     if (process.env.RUN_SEEDER === "true") {
       console.log("🌱 Running seeders...");
@@ -263,8 +249,6 @@ const startServer = async () => {
 
       console.log("✅ Seeders completed");
     }
-
-    stopCampaignDeadlineWorker = startCampaignDeadlineWorker();
     const PORT = process.env.PORT || 5000;
 
     server.listen(PORT, "0.0.0.0", () => {
@@ -300,7 +284,6 @@ const shutdown = async (signal) => {
   console.log(`Received ${signal}`);
 
   try {
-    stopCampaignDeadlineWorker?.();
     await sequelize.close();
 
     console.log("DB connection closed");
