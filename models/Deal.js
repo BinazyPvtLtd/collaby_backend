@@ -5,8 +5,6 @@ import xss from "xss";
 const Deal = sequelize.define(
   "Deal",
   {
-    obligationsResolvedAt: { type: DataTypes.DATE, allowNull: true },
-    resolutionReference: { type: DataTypes.STRING(150), allowNull: true },
     id: {
       type: DataTypes.INTEGER,
       autoIncrement: true,
@@ -171,10 +169,10 @@ function sanitizeDeal(data) {
 function enforceStatusLogic(data) {
   const validFlow = {
     accepted: ["submitted"],
-    submitted: ["under_review", "approved", "rejected"],
+    submitted: ["under_review", "rejected"],
     under_review: ["approved", "rejected"],
     approved: ["completed"],
-    rejected: ["submitted"],
+    rejected: [],
     completed: [],
   };
 

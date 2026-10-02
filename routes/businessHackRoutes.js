@@ -1,12 +1,15 @@
+import { verifyBusinessAccess } from "../middleware/BusinessAuthMiddleware.js";
 import express from "express";
 
 import {
   createBusinessHack,
+  getAllBusinessHacks,
+  getBusinessHackById,
+  updateBusinessHack,
+  deleteBusinessHack,
 } from "../controller/businessHackController.js";
 
 import { verifyToken } from "../middleware/AuthMiddleware.js";
-import { verifyBusinessAccess } from "../middleware/BusinessAuthMiddleware.js";
-import { listCampaigns, getCampaign, updateDraft, changeStatus, removeCampaign } from "../controller/campaignWorkflow.controller.js";
 
 const router = express.Router();
 
@@ -16,17 +19,16 @@ router.post(
   createBusinessHack
 );
 
-router.get("/", verifyToken, listCampaigns("multi"));
+router.get("/", verifyToken, getAllBusinessHacks);
 
-router.get("/:id", verifyToken, getCampaign("multi"));
+router.get("/:id", verifyToken, getBusinessHackById);
 
 router.put(
   "/:id",
-  verifyBusinessAccess,
-  updateDraft("multi")
+  verifyToken,
+  updateBusinessHack
 );
 
-router.patch("/:id/status", verifyBusinessAccess, changeStatus("multi"));
-router.delete("/:id", verifyBusinessAccess, removeCampaign("multi"));
+router.delete("/:id", verifyToken, deleteBusinessHack);
 
 export default router;

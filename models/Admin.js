@@ -6,7 +6,6 @@ import bcrypt from "bcryptjs";
 const Admin = sequelize.define(
   "Admin",
   {
-    permissions: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
     id: {
       type: DataTypes.INTEGER,
       autoIncrement: true,

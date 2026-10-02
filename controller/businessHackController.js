@@ -1,4 +1,3 @@
-import { listCampaigns, getCampaign, updateDraft, removeCampaign } from "./campaignWorkflow.controller.js";
 import BusinessHack from "../models/BusinessHacks.js";
 import { convertIdToStringBusiness } from "../HelperFunction/Helper.js";
 import { NotificationTypes } from "../constants/notificationTypes.js";
@@ -9,7 +8,7 @@ import notificationService from "../services/notification.service.js";
 export const createBusinessHack = async (req, res) => {
   try {
     // ✅ Prevent destructure crash
-    const { campaignName, state, city, campaignType, applicationDeadline } = req.body || {};
+    const { campaignName, state, city, campaignType } = req.body || {};
 
     // ✅ Validation
     if (!campaignName || !state || !city || !campaignType) {
@@ -25,8 +24,6 @@ export const createBusinessHack = async (req, res) => {
       state,
       city,
       campaignType,
-      applicationDeadline,
-      campaignStatus: "Draft",
     });
 
     // Notify influencers (all active) about the new campaign.
@@ -56,7 +53,117 @@ export const createBusinessHack = async (req, res) => {
   }
 };
 
-export const getAllBusinessHacks = listCampaigns("multi");
-export const getBusinessHackById = getCampaign("multi");
-export const updateBusinessHack = updateDraft("multi");
-export const deleteBusinessHack = removeCampaign("multi");
+// ✅ GET ALL
+export const getAllBusinessHacks = async (req, res) => {
+  try {
+    const campaigns = await BusinessHack.findAll({
+      order: [["id", "DESC"]],
+    });
+
+    const formatted = convertIdToStringBusiness(campaigns);
+
+    res.status(200).json({
+      success: true,
+      data: formatted,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ✅ GET SINGLE
+export const getBusinessHackById = async (req, res) => {
+  try {
+    const campaign = await BusinessHack.findByPk(req.params.id);
+
+    if (!campaign) {
+      return res.status(404).json({
+        success: false,
+        message: "Campaign not found",
+      });
+    }
+
+    const formatted = convertIdToStringBusiness(campaign);
+
+    res.status(200).json({
+      response: {
+        success: true,
+        ...formatted,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ✅ UPDATE
+export const updateBusinessHack = async (req, res) => {
+  try {
+    const campaign = await BusinessHack.findByPk(req.params.id);
+
+    if (!campaign) {
+      return res.status(404).json({
+        success: false,
+        message: "Campaign not found",
+      });
+    }
+
+    const { campaignName, state, city, campaignType } = req.body;
+
+    campaign.campaignName = campaignName ?? campaign.campaignName;
+    campaign.state = state ?? campaign.state;
+    campaign.city = city ?? campaign.city;
+    campaign.campaignType = campaignType ?? campaign.campaignType;
+
+    await campaign.save();
+
+    const formatted = convertIdToStringBusiness(campaign);
+
+    res.status(200).json({
+      response: {
+        success: true,
+        message: "Campaign updated successfully",
+        ...formatted,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ✅ DELETE
+export const deleteBusinessHack = async (req, res) => {
+  try {
+    const campaign = await BusinessHack.findByPk(req.params.id);
+
+    if (!campaign) {
+      return res.status(404).json({
+        success: false,
+        message: "Campaign not found",
+      });
+    }
+
+    await campaign.destroy();
+
+    res.status(200).json({
+      response: {
+        success: true,
+        message: "Campaign deleted successfully",
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

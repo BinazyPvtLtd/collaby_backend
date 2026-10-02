@@ -1,16 +1,19 @@
+import { verifyBusinessAccess } from "../middleware/BusinessAuthMiddleware.js";
 import express from 'express'
 import {
+  createBusinessHackStep4,
   getAllBusinessHackStep4,
+  updateBusinessHackStep4,
+  deleteBusinessHackStep4
 } from '../controller/businessHackStep4Controller.js'
 import uploadStep4 from '../middleware/uploadStep4.js'
-import { verifyBusinessAccess } from '../middleware/BusinessAuthMiddleware.js'
-import { mutateStep } from '../controller/campaignWorkflow.controller.js'
+import { verifyToken } from '../middleware/AuthMiddleware.js'
 
 const router = express.Router()
 
-router.post('/create', verifyBusinessAccess, uploadStep4, mutateStep(4, 'create'))
-router.get('/', verifyBusinessAccess, getAllBusinessHackStep4)
-router.put('/:id', verifyBusinessAccess, uploadStep4, mutateStep(4, 'update'))
-router.delete('/:id', verifyBusinessAccess, mutateStep(4, 'delete'))
+router.post('/create', verifyBusinessAccess, uploadStep4, createBusinessHackStep4),
+router.get('/', verifyToken, getAllBusinessHackStep4)
+router.put('/:id', uploadStep4, verifyToken, updateBusinessHackStep4)
+router.delete('/:id', verifyToken, deleteBusinessHackStep4)
 
 export default router
