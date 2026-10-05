@@ -4,10 +4,6 @@ import {
   adminLogin,
   adminLogout,
   getDashboardStats,
-  listCampaigns,
-  getCampaignById,
-  updateCampaignStatus,
-  deleteCampaign,
   listApplications,
   updateApplicationStatus,
   listDeals,
@@ -89,12 +85,6 @@ router.get("/influencers", verifyAdminToken, getAllInfluencers);
 router.get("/influencers/:id", verifyAdminToken, getInfluencerById);
 router.put("/influencers/:id", verifyAdminToken, updateInfluencer);
 router.delete("/influencers/:phone", verifyAdminToken, deleteInfluencerByPhone);
-
-// ================= CAMPAIGNS =================
-router.get("/campaigns", verifyAdminToken, listCampaigns);
-router.get("/campaigns/:id", verifyAdminToken, getCampaignById);
-router.patch("/campaigns/:id/status", verifyAdminToken, updateCampaignStatus);
-router.delete("/campaigns/:id", verifyAdminToken, deleteCampaign);
 
 // ================= APPLICATIONS =================
 router.get("/applications", verifyAdminToken, listApplications);

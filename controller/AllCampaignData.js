@@ -9,15 +9,13 @@ import {
 import { formatImagePath } from '../HelperFunction/Helper.js'
 export const getAllBusinessHackData = async (req, res) => {
   try {
-    console.log('GET ALL BUSINESS HACK DATA CALLED', req.user)
+    const role = req.user?.userType
 
-    const role = req.user?.userType // will be 'influencer' after middleware fix
-
-    // ✅ Only influencer can access this data
-    if (role !== 'influencer') {
+    // Admins must have passed the active-account check in verifyAdminToken.
+    if (!req.admin && role !== 'influencer') {
       return res.status(403).json({
         success: false,
-        message: 'Access denied. Only influencers can view this data.'
+        message: 'Access denied. Only admins and influencers can view this data.'
       })
     }
     // ✅ Fetch ALL hacks without any condition
