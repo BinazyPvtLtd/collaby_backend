@@ -793,31 +793,67 @@ export const getChats = async (req, res) => {
           console.log('FINAL PARTICIPANT:', participant)
           console.log('======================================')
         }
-        
+
         // --------------------------------------------------------
         // INFLUENCER -> BUSINESS DETAILS
         // --------------------------------------------------------
-
         if (userType === 'influencer') {
-          const brand = await BusinessRegistration.findByPk(room.brandId)
+          console.log('\n========== BUSINESS PARTICIPANT DEBUG ==========');
+          console.log('ROOM ID:', room.id);
+          console.log('ROOM BRAND ID:', room.brandId);
+
+          // First, check whether brandId is the business_registration primary key
+          let brand = await BusinessRegistration.findByPk(room.brandId);
+
+          console.log(
+            'LOOKUP BY PRIMARY KEY:',
+            brand
+              ? {
+                id: brand.id,
+                businessName: brand.businessName,
+                business_user_id: brand.business_user_id,
+              }
+              : null
+          );
+
+          // If brandId is an account/user ID, try business_user_id
+          if (!brand) {
+            console.log(
+              'No business found by primary key. Trying business_user_id...'
+            );
+
+            brand = await BusinessRegistration.findOne({
+              where: {
+                business_user_id: room.brandId,
+              },
+            });
+
+            console.log(
+              'LOOKUP BY BUSINESS USER ID:',
+              brand
+                ? {
+                  id: brand.id,
+                  businessName: brand.businessName,
+                  business_user_id: brand.business_user_id,
+                }
+                : null
+            );
+          }
 
           if (brand) {
             participant = {
               id: brand.id,
-
-              name:
-                brand.name ||
-                brand.businessName ||
-                brand.companyName ||
-                null,
-
+              name: brand.businessName || null,
               image:
                 brand.profileImage ||
                 brand.profilePicture ||
                 brand.profile_picture_url ||
-                null
-            }
+                null,
+            };
           }
+
+          console.log('FINAL BUSINESS PARTICIPANT:', participant);
+          console.log('===============================================\n');
         }
 
         // ========================================================
